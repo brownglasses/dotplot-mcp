@@ -1,0 +1,14 @@
+LICENSE
+README.md
+analysis.py
+benchmark.py
+i18n.py
+pyproject.toml
+report.py
+server.py
+dotplot_mcp.egg-info/PKG-INFO
+dotplot_mcp.egg-info/SOURCES.txt
+dotplot_mcp.egg-info/dependency_links.txt
+dotplot_mcp.egg-info/entry_points.txt
+dotplot_mcp.egg-info/requires.txt
+dotplot_mcp.egg-info/top_level.txt

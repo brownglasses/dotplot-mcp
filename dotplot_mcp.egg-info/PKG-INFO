@@ -1,3 +1,15 @@
+Metadata-Version: 2.4
+Name: dotplot-mcp
+Version: 0.1.0
+Summary: See individual users, not aggregate charts — YC's Dot Plot methodology as an MCP server
+License: MIT
+Project-URL: Homepage, https://github.com/brownglasses/dotplot-mcp
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mcp>=1.2.0
+Dynamic: license-file
+
 # Dot Plot MCP
 
 > See individual users, not aggregate charts.
@@ -34,15 +46,11 @@ Statistics never come from an LLM, so they are never wrong.
 
 Requirements: [uv](https://docs.astral.sh/uv/), and a 3-column CSV: `user_id, date, event`.
 
-One command — no clone, no setup:
-
 ```bash
-claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp
-```
+# Register with Claude Code
+claude mcp add dotplot -- uv run --python 3.12 /path/to/dotplot-mcp/server.py
 
-No data yet? Clone and try the sample:
-
-```bash
+# No data yet? Try the sample
 uv run sample_data.py   # generates events.csv (40 fake users)
 uv run demo.py          # watch the whole pipeline run
 ```

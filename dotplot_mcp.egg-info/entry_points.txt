@@ -1,0 +1,2 @@
+[console_scripts]
+dotplot-mcp = server:main

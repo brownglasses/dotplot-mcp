@@ -33,11 +33,15 @@ DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 
 
 필요한 것: [uv](https://docs.astral.sh/uv/), 그리고 `user_id, date, event` 3칸짜리 CSV.
 
-```bash
-# Claude Code에 등록
-claude mcp add dotplot -- uv run --python 3.12 /path/to/dotplot-mcp/server.py
+명령 한 줄 — 클론도 설정도 필요 없습니다:
 
-# 데이터가 아직 없다면 샘플로 체험
+```bash
+claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp
+```
+
+데이터가 아직 없다면 클론해서 샘플로 체험:
+
+```bash
 uv run sample_data.py   # events.csv 생성 (가짜 유저 40명)
 uv run demo.py          # 전체 파이프라인을 눈으로 확인
 ```
