@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+
+# 로컬 산출물 — 저장소에 올리지 않음
+events.csv
+dotplot_report.html
+server_err.log
+
+# 배포된 리포트와 Vercel 연결 정보 (개인 계정 종속)
+hosting/r/*.html
+hosting/.vercel/
+.env
+.env.*

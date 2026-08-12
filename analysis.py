@@ -1,0 +1,148 @@
+"""핵심 계산 로직 — MCP와 무관한 순수 파이썬.
+
+여기가 '1층(그리기)'과 '2층(패턴 찾기)'이다.
+LLM은 이 코드를 건드리지 못하고, 결과만 받아서 해석한다.
+그래서 숫자가 절대 안 틀린다.
+"""
+from __future__ import annotations
+
+import csv
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+
+
+@dataclass
+class UserRow:
+    user_id: str
+    platform: str
+    signup: date                       # 처음 이벤트가 찍힌 날
+    value_days: set[date] = field(default_factory=set)   # 핵심 가치 이벤트를 한 날들
+    special_days: dict[date, set[str]] = field(default_factory=dict)  # 그날 한 특별 이벤트들
+
+
+def load_events(csv_path: str) -> list[dict]:
+    with open(csv_path, newline="") as f:
+        return [
+            {**row, "date": date.fromisoformat(row["date"])}
+            for row in csv.DictReader(f)
+        ]
+
+
+def build_users(events: list[dict], value_event: str) -> dict[str, UserRow]:
+    """이벤트 로그를 '유저 한 명 = 한 줄' 구조로 바꾼다. 도트 플롯의 뼈대."""
+    users: dict[str, UserRow] = {}
+    for e in events:
+        u = users.get(e["user_id"])
+        if u is None:
+            u = users[e["user_id"]] = UserRow(e["user_id"], e["platform"], e["date"])
+        u.signup = min(u.signup, e["date"])
+        if e["event"] == value_event:
+            u.value_days.add(e["date"])
+        elif e["event"] != "open_app":  # open_app은 허영 지표라 특별 표시에서 제외
+            u.special_days.setdefault(e["date"], set()).add(e["event"])
+    return users
+
+
+def render_dot_plot(
+    users: dict[str, UserRow],
+    start: date,
+    days: int,
+    marks: dict[str, str] | None = None,   # {"search": "S", "create_playlist": "P"}
+) -> str:
+    """인스타 그림과 같은 표를 텍스트로 그린다.
+    ◎ = 가입일에 활동, ● = 활동, S/P = 특별 이벤트, · = 없음
+    """
+    marks = marks or {}
+    dates = [start + timedelta(days=i) for i in range(days)]
+    weekday_kr = "월화수목금토일"
+    header = "user        │ " + " ".join(weekday_kr[d.weekday()] for d in dates)
+    lines = [header, "─" * len(header)]
+    for u in sorted(users.values(), key=lambda x: x.signup):
+        cells = []
+        for d in dates:
+            special = u.special_days.get(d, set())
+            mark = next((marks[m] for m in marks if m in special), None)
+            if d in u.value_days:
+                cell = "◎" if d == u.signup else "●"
+                if mark:
+                    cell = mark  # 특별 이벤트가 있으면 그 글자로 표시
+            else:
+                cell = mark or "·"
+            cells.append(cell)
+        label = f"{u.user_id} {u.platform[:3]}"
+        lines.append(f"{label:<11} │ " + " ".join(cells))
+    return "\n".join(lines)
+
+
+def classify_users(users: dict[str, UserRow], today: date) -> dict[str, list[str]]:
+    """2층: 눈으로 찾던 패턴을 규칙으로 찾는다."""
+    buckets: dict[str, list[str]] = defaultdict(list)
+    for u in users.values():
+        active = sorted(u.value_days)
+        tenure = (today - u.signup).days + 1
+        recent2w = [d for d in active if (today - d).days < 14]
+        if len(active) <= 1 and tenure >= 7:
+            buckets["한번 쓰고 떠남 (온보딩 의심)"].append(u.user_id)
+        elif active and all(d.weekday() >= 5 for d in active) and len(active) >= 2:
+            buckets["주말에만 씀"].append(u.user_id)
+        elif tenure >= 14 and len(recent2w) >= 10:
+            buckets["거의 매일 씀 (찐팬)"].append(u.user_id)
+        else:
+            buckets["가끔 씀"].append(u.user_id)
+    return dict(buckets)
+
+
+def find_aha_moments(
+    events: list[dict],
+    users: dict[str, UserRow],
+    value_event: str,
+    today: date,
+    min_group: int = 5,
+) -> list[dict]:
+    """3층의 재료: 모든 후보 이벤트를 자동으로 훑어서
+    '이 행동을 한 유저가 나중에 단골이 되는가'를 계산한다.
+
+    단골 정의: 최근 2주 중 8일 이상 핵심 가치 이벤트 발생.
+    """
+    def is_regular(u: UserRow) -> bool:
+        return sum(1 for d in u.value_days if (today - d).days < 14) >= 8
+
+    candidates = {e["event"] for e in events} - {value_event, "open_app"}
+    did_event: dict[str, set[str]] = defaultdict(set)
+    for e in events:
+        if e["event"] in candidates:
+            did_event[e["event"]].add(e["user_id"])
+
+    results = []
+    for ev, doers in did_event.items():
+        group_a = [u for u in users.values() if u.user_id in doers]
+        group_b = [u for u in users.values() if u.user_id not in doers]
+        if len(group_a) < min_group or len(group_b) < min_group:
+            continue  # 표본이 너무 작으면 판단 보류 — 함부로 단정하지 않는다
+        rate_a = sum(map(is_regular, group_a)) / len(group_a)
+        rate_b = sum(map(is_regular, group_b)) / len(group_b)
+        results.append({
+            "event": ev,
+            "did_count": len(group_a),
+            "did_regular_rate": round(rate_a, 2),
+            "not_count": len(group_b),
+            "not_regular_rate": round(rate_b, 2),
+            "lift": round(rate_a - rate_b, 2),
+        })
+    return sorted(results, key=lambda r: -r["lift"])
+
+
+def audit_tracking(code_events: list[str], data_events: set[str]) -> dict:
+    """코드에서 찾은 이벤트 목록과 실제 데이터에 찍힌 이벤트를 대조한다.
+
+    - 코드에만 있음 → 심어놨는데 한 번도 안 찍힘 (고장이거나, 아무도 안 쓰는 기능)
+    - 데이터에만 있음 → 코드에서 못 찾음 (죽은 코드거나, 스캔 누락)
+    - 양쪽 다 있음 → 정상 추적 중
+    """
+    code = set(code_events)
+    return {
+        "정상 추적 중": sorted(code & data_events),
+        "코드에만 있음 (한 번도 안 찍힘 — 고장 의심)": sorted(code - data_events),
+        "데이터에만 있음 (코드에서 못 찾음 — 죽은 코드 의심)": sorted(data_events - code),
+    }
