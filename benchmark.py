@@ -31,13 +31,13 @@ def compute_aggregates(
     """제출할 집계값을 계산한다 — 이 함수의 반환값이 서버로 가는 전부다."""
     n = len(users)
     buckets = classify_users(users, today)
-    rate = lambda key: sum(len(v) for k, v in buckets.items() if key in k) / n
+    rate = lambda key: len(buckets.get(key, [])) / n
     aha = find_aha_moments(events, users, value_event, today)
     return {
         "users_count": n,
-        "churned_rate": round(rate("떠남"), 3),
-        "weekend_rate": round(rate("주말"), 3),
-        "regular_rate": round(rate("찐팬"), 3),
+        "churned_rate": round(rate("churned"), 3),
+        "weekend_rate": round(rate("weekend_only"), 3),
+        "regular_rate": round(rate("regular"), 3),
         "aha_lift": aha[0]["lift"] if aha else None,
     }
 

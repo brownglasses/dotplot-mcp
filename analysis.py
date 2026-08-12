@@ -49,14 +49,17 @@ def render_dot_plot(
     start: date,
     days: int,
     marks: dict[str, str] | None = None,   # {"search": "S", "create_playlist": "P"}
+    lang: str = "en",
 ) -> str:
     """인스타 그림과 같은 표를 텍스트로 그린다.
     ◎ = 가입일에 활동, ● = 활동, S/P = 특별 이벤트, · = 없음
     """
+    from i18n import t
+
     marks = marks or {}
     dates = [start + timedelta(days=i) for i in range(days)]
-    weekday_kr = "월화수목금토일"
-    header = "user        │ " + " ".join(weekday_kr[d.weekday()] for d in dates)
+    weekdays = t(lang, "weekdays").split(",")
+    header = "user        │ " + " ".join(weekdays[d.weekday()] for d in dates)
     lines = [header, "─" * len(header)]
     for u in sorted(users.values(), key=lambda x: x.signup):
         cells = []
@@ -76,20 +79,21 @@ def render_dot_plot(
 
 
 def classify_users(users: dict[str, UserRow], today: date) -> dict[str, list[str]]:
-    """2층: 눈으로 찾던 패턴을 규칙으로 찾는다."""
+    """2층: 눈으로 찾던 패턴을 규칙으로 찾는다.
+    반환 키는 언어 중립 코드 — 화면에 보여줄 땐 i18n.t(lang, f"bucket.{key}")로 번역."""
     buckets: dict[str, list[str]] = defaultdict(list)
     for u in users.values():
         active = sorted(u.value_days)
         tenure = (today - u.signup).days + 1
         recent2w = [d for d in active if (today - d).days < 14]
         if len(active) <= 1 and tenure >= 7:
-            buckets["한번 쓰고 떠남 (온보딩 의심)"].append(u.user_id)
+            buckets["churned"].append(u.user_id)
         elif active and all(d.weekday() >= 5 for d in active) and len(active) >= 2:
-            buckets["주말에만 씀"].append(u.user_id)
+            buckets["weekend_only"].append(u.user_id)
         elif tenure >= 14 and len(recent2w) >= 10:
-            buckets["거의 매일 씀 (찐팬)"].append(u.user_id)
+            buckets["regular"].append(u.user_id)
         else:
-            buckets["가끔 씀"].append(u.user_id)
+            buckets["casual"].append(u.user_id)
     return dict(buckets)
 
 
@@ -142,7 +146,7 @@ def audit_tracking(code_events: list[str], data_events: set[str]) -> dict:
     """
     code = set(code_events)
     return {
-        "정상 추적 중": sorted(code & data_events),
-        "코드에만 있음 (한 번도 안 찍힘 — 고장 의심)": sorted(code - data_events),
-        "데이터에만 있음 (코드에서 못 찾음 — 죽은 코드 의심)": sorted(data_events - code),
+        "tracked_ok": sorted(code & data_events),
+        "in_code_never_fired": sorted(code - data_events),
+        "in_data_not_in_code": sorted(data_events - code),
     }

@@ -44,6 +44,7 @@ def dot_plot(
     value_event: str,
     mark_events: dict[str, str] | None = None,
     weeks: int = 6,
+    lang: str = "en",
 ) -> str:
     """유저 한 명 = 한 줄, 하루 = 한 칸인 도트 플롯을 그린다.
     ◎=첫 활동일, ●=핵심 가치 이벤트 발생, ·=없음.
@@ -51,18 +52,24 @@ def dot_plot(
     events = analysis.load_events(csv_path)
     users = analysis.build_users(events, value_event)
     start = min(e["date"] for e in events)
-    return analysis.render_dot_plot(users, start, weeks * 7, mark_events)
+    return analysis.render_dot_plot(users, start, weeks * 7, mark_events, lang=lang)
 
 
 @mcp.tool()
-def classify_users(csv_path: str, value_event: str) -> dict:
+def classify_users(csv_path: str, value_event: str, lang: str = "en") -> dict:
     """유저를 행동 패턴별로 자동 분류한다:
-    한번 쓰고 떠남 / 주말에만 씀 / 거의 매일 씀 / 가끔 씀."""
+    churned(한번 쓰고 떠남) / weekend_only(주말만) / regular(찐팬) / casual(가끔).
+    lang: 사람이 읽을 라벨의 언어 (en/ko/ja)."""
+    from i18n import t
+
     events = analysis.load_events(csv_path)
     users = analysis.build_users(events, value_event)
     today = max(e["date"] for e in events)
     buckets = analysis.classify_users(users, today)
-    return {k: {"count": len(v), "users": v} for k, v in buckets.items()}
+    return {
+        k: {"label": t(lang, f"bucket.{k}"), "count": len(v), "users": v}
+        for k, v in buckets.items()
+    }
 
 
 @mcp.tool()
@@ -107,10 +114,12 @@ def generate_report(
     aha_event_label: str | None = None,
     max_users: int = 20,
     weeks: int = 4,
+    lang: str = "en",
 ) -> str:
     """YC 손그림 스타일의 HTML 도트 플롯 리포트를 생성한다.
     비개발자도 3초 안에 읽을 수 있는 형태 — 투자자/팀 공유용.
-    aha_event를 주면 그 이벤트가 발생한 날을 P 마크로 표시한다."""
+    aha_event를 주면 그 이벤트가 발생한 날을 P 마크로 표시한다.
+    lang: 리포트 언어 (en/ko/ja). 사용자의 대화 언어에 맞춰라."""
     import report as report_mod
 
     events = analysis.load_events(csv_path)
@@ -122,11 +131,11 @@ def generate_report(
     buckets = analysis.classify_users(users, today)
     aha_results = analysis.find_aha_moments(events, users, value_event, today)
     labels = {aha_event: aha_event_label.split("=")[-1].strip()} if aha_event and aha_event_label else {}
-    insights = report_mod.build_insights(len(users), buckets, aha_results, labels)
+    insights = report_mod.build_insights(len(users), buckets, aha_results, labels, lang=lang)
     html = report_mod.render_html_report(
         subset, start, weeks * 7, today,
         aha_event=aha_event, aha_event_label=aha_event_label,
-        insights=insights,
+        insights=insights, lang=lang,
     )
     with open(output_path, "w") as f:
         f.write(html)

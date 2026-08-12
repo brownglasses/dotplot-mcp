@@ -12,3 +12,4 @@ hosting/r/*.html
 hosting/.vercel/
 .env
 .env.*
+report_*.html
