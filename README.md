@@ -4,7 +4,7 @@
 
 **English** | [한국어](README.ko.md)
 
-![demo](.github/demo.gif)
+![report](.github/report.png)
 
 DAU/MAU charts trend "up and to the right" as long as new users arrive — even
 when nobody sticks. This MCP server implements
@@ -25,6 +25,10 @@ Statistics never come from an LLM, so they are never wrong.
 5. Report           hand-drawn style HTML + plain-language insights → share as a link
 6. Benchmark        (opt-in) compare your metrics with teams at your industry & stage
 ```
+
+### 30-second demo
+
+![demo](.github/demo.gif)
 
 ## Quick start
 

@@ -4,7 +4,7 @@
 
 [English](README.md) | **한국어**
 
-![demo](.github/demo.gif)
+![report](.github/report.png)
 
 DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 아무도 남지 않아도요.
 이 MCP 서버는 YC 파트너 David Lieb의
@@ -24,6 +24,10 @@ DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 
 ⑤ 리포트     손그림 스타일 HTML + 쉬운 말 인사이트 → 링크로 공유
 ⑥ 벤치마크   (옵트인) 같은 업종·단계 팀들과 내 지표 비교
 ```
+
+### 30초 데모
+
+![demo](.github/demo.gif)
 
 ## 시작하기
 
