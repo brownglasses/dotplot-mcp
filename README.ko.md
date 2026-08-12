@@ -4,7 +4,7 @@
 
 [English](README.md) | **한국어**
 
-![report](.github/report.png)
+![report](.github/report_ko.png)
 
 DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 아무도 남지 않아도요.
 이 MCP 서버는 YC 파트너 David Lieb의
@@ -71,6 +71,8 @@ SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
 리포트·도트 플롯·인사이트가 **영어, 한국어, 일본어**로 나옵니다
 (`lang` 파라미터 — 에이전트가 대화 언어에 맞춥니다).
 언어 추가 = [i18n.py](i18n.py)의 사전 하나 번역이면 끝. PR 환영합니다.
+
+같은 리포트를 [English](.github/report_en.png) · [한국어](.github/report_ko.png) · [日本語](.github/report_ja.png)로 볼 수 있어요.
 
 ## 익명 벤치마크 — 뭐가 전송되나
 
