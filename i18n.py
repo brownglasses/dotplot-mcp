@@ -115,3 +115,31 @@ def t(lang: str, key: str, **kwargs) -> str:
     table = STRINGS.get(lang, STRINGS[DEFAULT_LANG])
     text = table.get(key) or STRINGS[DEFAULT_LANG][key]
     return text.format(**kwargs) if kwargs else text
+
+
+def _placeholders(template: str) -> set[str]:
+    import string
+
+    return {name for _, name, _, _ in string.Formatter().parse(template) if name}
+
+
+def register_custom(strings: dict[str, str]) -> list[str]:
+    """에이전트가 번역한 문자열을 'custom' 언어로 등록한다.
+
+    안전장치: 각 문장의 {자리표시자}가 영어 원본과 정확히 일치해야 한다.
+    (번역하다가 {n}이나 {rate_did}를 빠뜨리면 숫자가 사라지므로)
+    반환: 문제 있는 키 목록 (비어 있으면 성공, 문제 키는 영어로 대체됨)
+    """
+    en = STRINGS[DEFAULT_LANG]
+    bad = []
+    merged = dict(en)
+    for key, value in strings.items():
+        if key not in en:
+            bad.append(f"{key} (알 수 없는 키)")
+            continue
+        if _placeholders(value) != _placeholders(en[key]):
+            bad.append(f"{key} (자리표시자 불일치: {_placeholders(en[key])} 필요)")
+            continue
+        merged[key] = value
+    STRINGS["custom"] = merged
+    return bad

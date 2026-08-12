@@ -68,9 +68,11 @@ SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
 
 ## 다국어
 
-리포트·도트 플롯·인사이트가 **영어, 한국어, 일본어**로 나옵니다
-(`lang` 파라미터 — 에이전트가 대화 언어에 맞춥니다).
-언어 추가 = [i18n.py](i18n.py)의 사전 하나 번역이면 끝. PR 환영합니다.
+리포트는 **모든 언어**로 나옵니다. 영어·한국어·일본어는 내장이고,
+그 외 언어는 에이전트가 즉석에서 번역해 리포트에 넣습니다
+(`get_report_strings` → 번역 → `custom_strings`). 이때 코드가 숫자 자리표시자가
+번역에서 살아남았는지 검증하므로 통계는 정확하게 유지됩니다.
+내 언어를 내장하고 싶다면 [i18n.py](i18n.py) 사전 하나면 됩니다. PR 환영.
 
 같은 리포트를 [English](.github/report_en.png) · [한국어](.github/report_ko.png) · [日本語](.github/report_ja.png)로 볼 수 있어요.
 

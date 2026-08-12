@@ -69,9 +69,11 @@ SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
 
 ## Languages
 
-Reports, dot plots, and insights are localized: **English, 한국어, 日本語**
-(`lang` parameter — the agent matches your conversation language).
-Adding a language = translating one dictionary in [i18n.py](i18n.py). PRs welcome.
+Reports work in **any language**. English, 한국어, and 日本語 are built in;
+for every other language the agent translates the report strings on the fly
+(`get_report_strings` → translate → `custom_strings`), while the code validates
+that number placeholders survive translation — so statistics stay exact.
+Want your language built in? It's one dictionary in [i18n.py](i18n.py). PRs welcome.
 
 See the same report in [English](.github/report_en.png) · [한국어](.github/report_ko.png) · [日本語](.github/report_ja.png).
 

@@ -106,6 +106,20 @@ def audit_tracking(code_events: list[str], csv_path: str) -> dict:
 
 
 @mcp.tool()
+def get_report_strings() -> dict:
+    """리포트에 들어가는 번역 가능한 문장 전체(영어 원본)를 반환한다.
+
+    내장 언어(en/ko/ja)가 아닌 언어로 리포트를 만들 때:
+    1. 이 툴을 불러 영어 원본을 받는다
+    2. 값들을 사용자의 언어로 번역한다 — {n}, {rate_did} 같은
+       중괄호 자리표시자는 반드시 그대로 남길 것 (숫자가 들어갈 자리)
+    3. generate_report에 custom_strings로 넘기고 lang="custom"으로 호출한다"""
+    from i18n import STRINGS
+
+    return STRINGS["en"]
+
+
+@mcp.tool()
 def generate_report(
     csv_path: str,
     value_event: str,
@@ -115,12 +129,26 @@ def generate_report(
     max_users: int = 20,
     weeks: int = 4,
     lang: str = "en",
+    custom_strings: dict[str, str] | None = None,
 ) -> str:
     """YC 손그림 스타일의 HTML 도트 플롯 리포트를 생성한다.
     비개발자도 3초 안에 읽을 수 있는 형태 — 투자자/팀 공유용.
     aha_event를 주면 그 이벤트가 발생한 날을 P 마크로 표시한다.
-    lang: 리포트 언어 (en/ko/ja). 사용자의 대화 언어에 맞춰라."""
+
+    언어: 사용자의 대화 언어에 맞춰라.
+    - 내장 언어면 lang="en"|"ko"|"ja"
+    - 그 외 언어(프랑스어, 스페인어, 힌디어...)는 get_report_strings()를 받아
+      번역한 뒤 custom_strings로 넘기고 lang="custom"으로 호출.
+      {중괄호} 자리표시자는 절대 번역하지 말 것."""
     import report as report_mod
+
+    if custom_strings:
+        from i18n import register_custom
+
+        bad = register_custom(custom_strings)
+        lang = "custom"
+        if bad:
+            return f"번역 오류 — 다음 키를 고쳐서 다시 호출하세요: {bad}"
 
     events = analysis.load_events(csv_path)
     users = analysis.build_users(events, value_event)
