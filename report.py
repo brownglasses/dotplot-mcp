@@ -66,13 +66,18 @@ def render_html_report(
     start: date,
     days: int,
     today: date,
-    aha_event_label: str | None = None,   # 예: "P = created a playlist"
-    aha_event: str | None = None,          # 예: "create_playlist"
+    mark_events: dict[str, str] | None = None,   # {"create_playlist": "P", "share": "S"}
+    mark_labels: dict[str, str] | None = None,   # {"create_playlist": "P = created a playlist"}
     insights: list[str] | None = None,
     lang: str = "en",
 ) -> str:
     buckets = classify_users(users, today)
     weekend_only = set(buckets.get("weekend_only", []))
+
+    mark_events = mark_events or {}
+    mark_labels = mark_labels or {}
+    palette = ["#e05c26", "#7b5cd6", "#0f8a6d", "#d4537e", "#b8860b"]
+    mark_colors = {ev: palette[i % len(palette)] for i, ev in enumerate(mark_events)}
 
     dates = [start + timedelta(days=i) for i in range(days)]
     weekdays = t(lang, "weekdays").split(",") if lang != "en" else WEEKDAY_EN
@@ -88,8 +93,10 @@ def render_html_report(
         for d in dates:
             klass = "we" if d.weekday() >= 5 else ""
             inner = ""
-            if aha_event and aha_event in u.special_days.get(d, set()):
-                inner = '<span class="aha">P</span>'
+            day_specials = u.special_days.get(d, set())
+            hit = next((ev for ev in mark_events if ev in day_specials), None)
+            if hit:
+                inner = f'<span class="aha" style="background:{mark_colors[hit]}">{mark_events[hit]}</span>'
             elif d in u.value_days:
                 dot = "ring" if d == u.signup else ("orange" if u.user_id in weekend_only else "dot")
                 inner = f'<span class="{dot}"></span>'
@@ -101,8 +108,10 @@ def render_html_report(
         for key, ids in sorted(buckets.items(), key=lambda x: -len(x[1]))
     )
 
-    aha_legend = (
-        f'<span><span class="aha lg">P</span> {aha_event_label}</span>' if aha_event_label else ""
+    aha_legend = "".join(
+        f'<span><span class="aha lg" style="background:{mark_colors[ev]}">{letter}</span> '
+        f'{mark_labels.get(ev, ev)}</span>'
+        for ev, letter in mark_events.items()
     )
 
     insight_card = ""

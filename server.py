@@ -124,8 +124,8 @@ def generate_report(
     csv_path: str,
     value_event: str,
     output_path: str = "dotplot_report.html",
-    aha_event: str | None = None,
-    aha_event_label: str | None = None,
+    mark_events: dict[str, str] | None = None,
+    mark_labels: dict[str, str] | None = None,
     max_users: int = 20,
     weeks: int = 4,
     lang: str = "en",
@@ -133,7 +133,10 @@ def generate_report(
 ) -> str:
     """YC 손그림 스타일의 HTML 도트 플롯 리포트를 생성한다.
     비개발자도 3초 안에 읽을 수 있는 형태 — 투자자/팀 공유용.
-    aha_event를 주면 그 이벤트가 발생한 날을 P 마크로 표시한다.
+    mark_events로 특별 이벤트들을 글자로 표시한다 (여러 개 가능, 색 자동 배정).
+    예: mark_events={"create_playlist": "P", "share": "S"},
+        mark_labels={"create_playlist": "P = created a playlist", "share": "S = shared"}
+    find_aha_moments의 상위 후보들을 마크로 넣으면 리포트가 제일 유용해진다.
 
     언어: 사용자의 대화 언어에 맞춰라.
     - 내장 언어면 lang="en"|"ko"|"ja"
@@ -158,11 +161,11 @@ def generate_report(
     # 인사이트는 표에 보이는 일부가 아니라 전체 유저 기준으로 계산한다
     buckets = analysis.classify_users(users, today)
     aha_results = analysis.find_aha_moments(events, users, value_event, today)
-    labels = {aha_event: aha_event_label.split("=")[-1].strip()} if aha_event and aha_event_label else {}
+    labels = {ev: lbl.split("=")[-1].strip() for ev, lbl in (mark_labels or {}).items()}
     insights = report_mod.build_insights(len(users), buckets, aha_results, labels, lang=lang)
     html = report_mod.render_html_report(
         subset, start, weeks * 7, today,
-        aha_event=aha_event, aha_event_label=aha_event_label,
+        mark_events=mark_events, mark_labels=mark_labels,
         insights=insights, lang=lang,
     )
     with open(output_path, "w") as f:
