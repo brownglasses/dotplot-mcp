@@ -1,0 +1,6 @@
+# Smithery 설정 — https://smithery.ai/docs
+startCommand:
+  type: stdio
+  configSchema: {}
+  commandFunction: |-
+    (config) => ({ command: "uvx", args: ["dotplot-mcp"] })
