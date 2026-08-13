@@ -19,10 +19,14 @@ h1{font-size:46px;margin:0 0 4px}
 .install{display:flex;align-items:center;gap:10px;background:#1d2833;color:#d8e6f7;
   border-radius:12px;padding:13px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13px;margin:0 0 8px}
 .install .scroll{overflow-x:auto;flex:1;text-align:left}
-.install code{white-space:nowrap}
+.install code{white-space:nowrap;cursor:pointer}
+.sqlbar code{cursor:pointer}
+::selection{background:#2f7de155}
 .copy{flex-shrink:0;border:1px solid #d8e6f766;background:none;color:#d8e6f7;border-radius:8px;
   padding:6px 12px;font:inherit;cursor:pointer}
 .copy:hover{background:#ffffff14}
+.copy.ok,.btn.ok{background:#0f8a3d;border-color:#0f8a3d;color:#fff}
+.copy.fail,.btn.fail{background:#d0442c;border-color:#d0442c;color:#fff}
 .trust{display:flex;gap:8px 14px;flex-wrap:wrap;justify-content:center;margin:0 0 30px;font-size:15px;color:#8a877e}
 .trust span::before{content:"✓ ";color:#0f8a3d}
 .how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:34px 0 8px;text-align:left}
@@ -103,7 +107,7 @@ h1{font-size:46px;margin:0 0 4px}
 <img class="shot" id="hero" src="/dotplot-en.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
 
 <div class="install"><div class="scroll"><code id="cmd">claude mcp add dotplot -- uvx dotplot-mcp</code></div>
-<button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓ copied';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
+<button class="copy" data-copy="cmd">copy</button></div>
 <div class="trust" id="t-trust">
 <span>for Claude Code &amp; Cursor</span><span>open source (MIT)</span><span>no signup, no SDK</span>
 <span>your data never leaves your machine</span><span>stats computed by Python, not the LLM</span>
@@ -128,7 +132,7 @@ u02,2026-07-01,purchase
 <div class="body">
 <p id="t-sqlp">Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:</p>
 <div class="sqlbar"><div class="scroll"><code id="sql">SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders ORDER BY 2 DESC LIMIT 2000;</code></div>
-<button class="copy" id="sqlcopy">copy</button></div>
+<button class="copy" data-copy="sql">copy</button></div>
 <p style="margin:8px 0 0" id="t-sqlnote">Once installed, you skip this step — Dotplot reads your database directly, on your machine.</p>
 </div></details>
 <div class="out" id="out"></div>
@@ -629,19 +633,61 @@ function run(){
   h += '<p class="glance">' + T().glance(b.churned.length, b.regular.length, b.weekend_only.length, b.casual.length) + '</p>';
   h += '<p class="note">' + T().note(esc(valueEvent), users.length, rows.length) + '</p>';
   h += '<div class="nextcta">' + T().cta + '<br><br>' +
-       '<button class="btn primary small" id="cta2">' + T().ctab + '</button></div>';
+       '<button class="btn primary small" data-copy="cmd">' + T().ctab + '</button></div>';
   out.innerHTML = h; out.classList.add('on');
-  const c2 = document.getElementById('cta2');
-  if (c2) c2.addEventListener('click', function(){
-    navigator.clipboard.writeText(document.getElementById('cmd').textContent);
-    this.textContent = T().ctabd;
-  });
 }
 
-document.getElementById('sqlcopy').addEventListener('click', function(){
-  navigator.clipboard.writeText(document.getElementById('sql').textContent);
-  this.textContent = '✓'; const b = this; setTimeout(function(){ b.textContent = 'copy'; }, 1500);
+
+/* ---- copy with fallback + always visible feedback ---- */
+function legacyCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly','');
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.appendChild(ta);
+  ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch(e){ ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+function flash(btn, ok){
+  const orig = btn.dataset.orig || btn.textContent;
+  btn.dataset.orig = orig;
+  btn.classList.remove('ok','fail');
+  btn.classList.add(ok ? 'ok' : 'fail');
+  btn.textContent = ok ? (T().copied || '✓ Copied!') : (T().copyfail || 'Press ⌘/Ctrl+C');
+  clearTimeout(btn._t);
+  btn._t = setTimeout(function(){ btn.textContent = orig; btn.classList.remove('ok','fail'); }, 2000);
+}
+function selectNode(el){
+  try {
+    const r = document.createRange(); r.selectNodeContents(el);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    return true;
+  } catch(e){ return false; }
+}
+function copyFrom(btn){
+  const node = document.getElementById(btn.dataset.copy);
+  const text = node.textContent;
+  const fail = function(){
+    if (legacyCopy(text)) { flash(btn, true); return; }
+    selectNode(node);
+    flash(btn, false);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ flash(btn, true); }).catch(fail);
+  } else { fail(); }
+}
+document.addEventListener('click', function(e){
+  const c = e.target.closest('#cmd, #sql');
+  if (c) selectNode(c);
 });
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('[data-copy]');
+  if (btn) copyFrom(btn);
+});
+
 document.getElementById('run').addEventListener('click', run);
 document.getElementById('load').addEventListener('click', function(){
   document.getElementById('ta').value = SAMPLE; run();
@@ -673,7 +719,7 @@ const I18N = {
   glance: (a,b,c,d) => '<span>⭕ '+a+' used once, never returned</span><span>🔵 '+b+' almost daily</span><span>📅 '+c+' weekend-only</span><span>· '+d+' occasional</span>',
   note: (ev,u,r) => 'value event: <b>'+ev+'</b> · '+u+' users · '+r+' events — same math as the Python engine.',
   cta: 'That is one metric, on rows you pasted.<br>Install it to get the full report — funnel, weekly retention, history, shareable link.',
-  ctab: 'Copy install command', ctabd: '✓ command copied'
+  ctab: 'Copy install command', copied: '✓ Copied!', copyfail: 'Selected — press ⌘/Ctrl+C'
  },
  ko: {
   sub: '유저 한 명이 한 줄, 활동한 날이 점 하나 — Claude에게 물으면 아하 모먼트를 찾아줍니다.',
@@ -699,7 +745,7 @@ const I18N = {
   glance: (a,b,c,d) => '<span>⭕ 한 번 쓰고 안 옴 '+a+'명</span><span>🔵 거의 매일 '+b+'명</span><span>📅 주말에만 '+c+'명</span><span>· 가끔 '+d+'명</span>',
   note: (ev,u,r) => '핵심 이벤트: <b>'+ev+'</b> · 유저 '+u+'명 · 이벤트 '+r+'건 — 파이썬 엔진과 같은 계산.',
   cta: '방금은 붙여넣은 몇 줄로 뽑은 지표 하나예요.<br>설치하면 퍼널·주차별 리텐션·히스토리·공유 링크까지 전부 나옵니다.',
-  ctab: '설치 명령 복사', ctabd: '✓ 복사했어요'
+  ctab: '설치 명령 복사', copied: '✓ 복사했어요!', copyfail: '선택했어요 — ⌘/Ctrl+C'
  },
  ja: {
   sub: '1行が1ユーザー、1つの点が利用した1日 — Claudeに聞けばアハ・モーメントが見つかります。',
@@ -725,7 +771,7 @@ const I18N = {
   glance: (a,b,c,d) => '<span>⭕ 一度きり '+a+'人</span><span>🔵 ほぼ毎日 '+b+'人</span><span>📅 週末のみ '+c+'人</span><span>· たまに '+d+'人</span>',
   note: (ev,u,r) => '価値イベント: <b>'+ev+'</b> · ユーザー'+u+'人 · イベント'+r+'件 — Pythonエンジンと同じ計算。',
   cta: '今のは貼り付けた数行から出した指標ひとつです。<br>インストールすればファネル・週次リテンション・履歴・共有リンクまで揃います。',
-  ctab: 'インストールコマンドをコピー', ctabd: '✓ コピーしました'
+  ctab: 'インストールコマンドをコピー', copied: '✓ コピーしました!', copyfail: '選択済み — ⌘/Ctrl+C'
  }
 };
 let LANG = 'en';
