@@ -14,7 +14,8 @@ h1{font-size:42px;margin:0 0 6px;line-height:1.2}
   box-shadow:5px 5px 0 #22222215;margin:0 0 30px}
 .install{display:flex;align-items:center;gap:10px;background:#1d2833;color:#d8e6f7;
   border-radius:12px;padding:14px 18px;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;
-  text-align:left;overflow-x:auto;margin:0 0 10px}
+  text-align:left;margin:0 0 10px}
+.install .scroll{overflow-x:auto;flex:1}
 .install code{white-space:nowrap}
 .copy{flex-shrink:0;border:1px solid #d8e6f766;background:none;color:#d8e6f7;border-radius:8px;
   padding:6px 12px;font:inherit;cursor:pointer}
@@ -34,7 +35,7 @@ h1{font-size:42px;margin:0 0 6px;line-height:1.2}
 
 <img class="shot" src="/aha-card.png" alt="Aha moment card: users aligned on the day they first did the key action — sparse dots before, dense after, 89% vs 41% regulars">
 
-<div class="install"><code id="cmd">claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp</code>
+<div class="install"><div class="scroll"><code id="cmd">claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp</code></div>
 <button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓ copied';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
 <p class="hint">One line. No clone, no signup. Then just ask: “find my aha moment”</p>
 
