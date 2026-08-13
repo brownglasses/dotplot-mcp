@@ -189,9 +189,11 @@ def generate_report(
     insights = report_mod.build_insights(len(users), buckets, aha_results, labels, lang=lang)
     funnel = analysis.onboarding_funnel(users, today)
     retention = analysis.retention_curve(users, today)
+    # 나머지 이벤트는 범례에서 딸깍으로 켤 수 있게 (아하 순위 순, 최대 6개)
+    extra_events = [c["event"] for c in aha_results if c["event"] not in mark_events][:6]
     html = report_mod.render_html_report(
         subset, start, weeks * 7, today,
-        mark_events=mark_events, mark_labels=mark_labels,
+        mark_events=mark_events, mark_labels=mark_labels, extra_events=extra_events,
         insights=insights, funnel=funnel, retention=retention, lang=lang,
     )
     with open(output_path, "w") as f:

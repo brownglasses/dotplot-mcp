@@ -66,8 +66,9 @@ def render_html_report(
     start: date,
     days: int,
     today: date,
-    mark_events: dict[str, str] | None = None,   # {"create_playlist": "P", "share": "S"}
+    mark_events: dict[str, str] | None = None,   # {"create_playlist": "P", "share": "S"} — 기본 켜짐
     mark_labels: dict[str, str] | None = None,   # {"create_playlist": "P = created a playlist"}
+    extra_events: list[str] | None = None,       # 범례에서 딸깍으로 켤 수 있는 추가 이벤트들
     insights: list[str] | None = None,
     funnel: dict | None = None,
     retention: list[dict] | None = None,
@@ -78,8 +79,17 @@ def render_html_report(
 
     mark_events = mark_events or {}
     mark_labels = mark_labels or {}
-    palette = ["#e05c26", "#7b5cd6", "#0f8a6d", "#d4537e", "#b8860b"]
-    mark_colors = {ev: palette[i % len(palette)] for i, ev in enumerate(mark_events)}
+    used = set(mark_events.values())
+    extra_marks: dict[str, str] = {}
+    for ev in extra_events or []:
+        if ev in mark_events:
+            continue
+        letter = next((ch.upper() for ch in ev if ch.isalpha() and ch.upper() not in used), "*")
+        used.add(letter)
+        extra_marks[ev] = letter
+    all_marks = {**mark_events, **extra_marks}  # 순서 = 우선순위
+    palette = ["#e05c26", "#7b5cd6", "#0f8a6d", "#d4537e", "#b8860b", "#4a6fa5", "#8a5a44", "#5e7a1e"]
+    mark_colors = {ev: palette[i % len(palette)] for i, ev in enumerate(all_marks)}
 
     dates = [start + timedelta(days=i) for i in range(days)]
     weekdays = t(lang, "weekdays").split(",") if lang != "en" else WEEKDAY_EN
@@ -94,15 +104,20 @@ def render_html_report(
         cells = []
         for d in dates:
             klass = "we" if d.weekday() >= 5 else ""
-            inner = ""
             day_specials = u.special_days.get(d, set())
+            base = ""
+            if d in u.value_days:
+                base = "ring" if d == u.signup else ("orange" if u.user_id in weekend_only else "dot")
             hit = next((ev for ev in mark_events if ev in day_specials), None)
             if hit:
                 inner = f'<span class="aha" style="background:{mark_colors[hit]}">{mark_events[hit]}</span>'
-            elif d in u.value_days:
-                dot = "ring" if d == u.signup else ("orange" if u.user_id in weekend_only else "dot")
-                inner = f'<span class="{dot}"></span>'
-            cells.append(f'<td class="{klass}">{inner}</td>')
+            elif base:
+                inner = f'<span class="{base}"></span>'
+            else:
+                inner = ""
+            present = [ev for ev in all_marks if ev in day_specials]
+            attrs = f' data-ev="{"|".join(present)}" data-base="{base}"' if present else ""
+            cells.append(f'<td class="{klass}"{attrs}>{inner}</td>')
         body.append(f'<tr><td class="name">{u.user_id.upper()}</td>{"".join(cells)}</tr>')
 
     summary = "".join(
@@ -110,11 +125,21 @@ def render_html_report(
         for key, ids in sorted(buckets.items(), key=lambda x: -len(x[1]))
     )
 
-    aha_legend = "".join(
-        f'<span><span class="aha lg" style="background:{mark_colors[ev]}">{letter}</span> '
-        f'{mark_labels.get(ev, ev)}</span>'
-        for ev, letter in mark_events.items()
-    )
+    import json as _json
+
+    chips = []
+    for ev, letter in all_marks.items():
+        on = ev in mark_events
+        chips.append(
+            f'<button class="chip{"" if on else " off"}" data-toggle="{ev}">'
+            f'<span class="aha lg" style="background:{mark_colors[ev]}">{letter}</span> '
+            f'{mark_labels.get(ev, ev)}</button>'
+        )
+    aha_legend = "".join(chips)
+    marks_js = _json.dumps({
+        ev: {"l": letter, "c": mark_colors[ev], "on": ev in mark_events}
+        for ev, letter in all_marks.items()
+    })
 
     funnel_card = ""
     if funnel and funnel["steps"][0]["count"] > 0:
@@ -206,6 +231,11 @@ td.we,th.we{{background:#fae8dd}}
 .card.ins{{background:#fffbea;border-color:#e0a52a}}
 .card.ins li{{margin-bottom:10px}}
 .card .note{{font-size:16px;color:#999;margin:12px 0 0}}
+.chip{{display:flex;align-items:center;gap:8px;border:none;background:none;font:inherit;
+  font-size:19px;cursor:pointer;padding:4px 8px;border-radius:8px}}
+.chip:hover{{background:#2222220d}}
+.chip.off{{opacity:.35}}
+.chip.off .aha.lg::before{{content:"+ "}}
 .frow{{display:flex;align-items:center;gap:12px;margin:8px 0}}
 .flabel{{width:170px;font-size:19px;flex-shrink:0}}
 .fbar{{flex:1;height:26px;background:#f1efe8;border-radius:6px;overflow:hidden}}
@@ -227,4 +257,23 @@ td.we,th.we{{background:#fae8dd}}
 {funnel_card}
 {retention_card}
 {insight_card}
-</div></body></html>"""
+<script>
+const MARKS = {marks_js};
+function repaint() {{
+  document.querySelectorAll("td[data-ev]").forEach(td => {{
+    const hit = td.dataset.ev.split("|").find(e => MARKS[e] && MARKS[e].on);
+    if (hit) {{
+      const m = MARKS[hit];
+      td.innerHTML = '<span class="aha" style="background:' + m.c + '">' + m.l + '</span>';
+    }} else {{
+      td.innerHTML = td.dataset.base ? '<span class="' + td.dataset.base + '"></span>' : '';
+    }}
+  }});
+}}
+document.querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => {{
+  const ev = b.dataset.toggle;
+  MARKS[ev].on = !MARKS[ev].on;
+  b.classList.toggle("off", !MARKS[ev].on);
+  repaint();
+}}));
+</script></div></body></html>"""
