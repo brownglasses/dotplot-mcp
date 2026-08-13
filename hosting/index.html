@@ -1,49 +1,33 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dot Plot MCP — see individual users, not aggregate charts</title>
-<meta name="description" content="YC's Dot Plot methodology as an MCP server. Find your aha moment, onboarding funnel, and retention — stats computed by code, never by the LLM.">
-<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Gaegu&display=swap" rel="stylesheet">
+<title>Dotplot</title>
+<meta name="description" content="See individual users, not aggregate charts — YC's Dot Plot methodology as an MCP server.">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
 <style>
 body{margin:0;background:#fdfdfb;background-image:radial-gradient(#e8e6df 1px,transparent 1px);
-  background-size:22px 22px;font-family:'Patrick Hand','Gaegu',sans-serif;color:#222;padding:48px 20px 64px}
-.wrap{max-width:760px;margin:0 auto;text-align:center}
-h1{font-size:42px;margin:0 0 6px;line-height:1.2}
-.sub{font-size:22px;color:#777;margin:0 0 8px}
-.sub-ko{font-size:18px;color:#999;margin:0 0 28px}
-.shot{width:100%;max-width:720px;border:2px solid #222;border-radius:14px;
-  box-shadow:5px 5px 0 #22222215;margin:0 0 30px}
+  background-size:22px 22px;font-family:'Patrick Hand',sans-serif;color:#222;padding:44px 20px 60px}
+.wrap{max-width:720px;margin:0 auto;text-align:center}
+h1{font-size:46px;margin:0 0 4px}
+.sub{font-size:21px;color:#777;margin:0 0 26px}
+.shot{width:100%;border:2px solid #222;border-radius:14px;box-shadow:5px 5px 0 #22222215;margin:0 0 26px}
 .install{display:flex;align-items:center;gap:10px;background:#1d2833;color:#d8e6f7;
-  border-radius:12px;padding:14px 18px;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;
-  text-align:left;margin:0 0 10px}
-.install .scroll{overflow-x:auto;flex:1}
+  border-radius:12px;padding:13px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13px;margin:0 0 26px}
+.install .scroll{overflow-x:auto;flex:1;text-align:left}
 .install code{white-space:nowrap}
 .copy{flex-shrink:0;border:1px solid #d8e6f766;background:none;color:#d8e6f7;border-radius:8px;
   padding:6px 12px;font:inherit;cursor:pointer}
-.copy:hover{background:#ffffff14}
-.hint{font-size:16px;color:#999;margin:0 0 30px}
 .btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-block;font-size:21px;text-decoration:none;color:#222;border:2px solid #222;
-  border-radius:12px;padding:12px 26px;box-shadow:3px 3px 0 #22222220;background:#fff}
-.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #22222225}
+.btn{font-size:20px;text-decoration:none;color:#222;border:2px solid #222;border-radius:12px;
+  padding:11px 24px;box-shadow:3px 3px 0 #22222220;background:#fff}
 .btn.primary{background:#2f7de1;border-color:#2f7de1;color:#fff}
-.foot{margin-top:44px;font-size:16px;color:#aaa}
-.foot a{color:#888}
 </style></head><body><div class="wrap">
-<h1>See individual users,<br>not aggregate charts</h1>
-<p class="sub">YC's Dot Plot methodology as an MCP server — ask Claude, get your aha moment.</p>
-<p class="sub-ko">유저 한 명 한 명을 보세요. 통계는 코드가, 해석은 AI가.</p>
-
-<img class="shot" src="/aha-card.png" alt="Aha moment card: users aligned on the day they first did the key action — sparse dots before, dense after, 89% vs 41% regulars">
-
+<h1>Dotplot</h1>
+<p class="sub">One row per user, one dot per active day — ask Claude, get your aha moment.</p>
+<img class="shot" src="/dotplot.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
 <div class="install"><div class="scroll"><code id="cmd">claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp</code></div>
-<button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓ copied';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
-<p class="hint">One line. No clone, no signup. Then just ask: “find my aha moment”</p>
-
+<button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
 <div class="btns">
-<a class="btn primary" href="/r/0a0f99b9fc71.html">See a sample report</a>
+<a class="btn primary" href="/r/0a0f99b9fc71.html">Sample report</a>
 <a class="btn" href="https://github.com/brownglasses/dotplot-mcp">GitHub ⭐</a>
 </div>
-
-<p class="foot">Reports are private: random URLs, noindex, links only.<br>
-<a href="https://github.com/brownglasses/dotplot-mcp?tab=readme-ov-file#anonymous-benchmark--what-gets-sent">What data leaves your machine? (spoiler: almost nothing)</a></p>
 </div></body></html>
