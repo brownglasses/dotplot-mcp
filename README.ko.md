@@ -36,7 +36,7 @@ DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 
 명령 한 줄 — 클론도 설정도 필요 없습니다:
 
 ```bash
-claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp
+claude mcp add dotplot -- uvx dotplot-mcp
 ```
 
 데이터가 아직 없다면 클론해서 샘플로 체험:

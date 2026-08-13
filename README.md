@@ -37,7 +37,7 @@ Requirements: [uv](https://docs.astral.sh/uv/), and a 3-column CSV: `user_id, da
 One command — no clone, no setup:
 
 ```bash
-claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp
+claude mcp add dotplot -- uvx dotplot-mcp
 ```
 
 No data yet? Clone and try the sample:
