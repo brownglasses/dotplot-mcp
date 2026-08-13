@@ -42,6 +42,11 @@ h1{font-size:46px;margin:0 0 4px}
   padding:11px 24px;box-shadow:3px 3px 0 #22222220;background:#fff;cursor:pointer;font-family:inherit}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
 .btn.small{font-size:17px;padding:8px 18px;box-shadow:2px 2px 0 #22222218}
+.langbar{display:flex;gap:6px;justify-content:center;margin:0 0 18px}
+.langbar button{font-family:inherit;font-size:15px;color:#8a877e;background:none;border:1.5px solid transparent;
+  border-radius:99px;padding:3px 12px;cursor:pointer}
+.langbar button:hover{border-color:#22222230}
+.langbar button[aria-current="true"]{color:#1d2833;border-color:#222;background:#fff}
 
 .demo{border:2.5px solid #222;border-radius:16px;background:#fff;padding:20px 22px;margin:36px 0 0;
   box-shadow:6px 6px 0 #22222215;text-align:left}
@@ -88,20 +93,25 @@ h1{font-size:46px;margin:0 0 4px}
 .nextcta{border-top:1.5px dashed var(--line);margin:14px 0 0;padding:14px 0 0;text-align:center;font-size:17px;color:#555}
 .err{color:#d0442c;font-size:16px;margin:10px 0 0}
 </style></head><body><div class="wrap">
+<div class="langbar" id="langbar">
+<button data-lang="en" type="button">English</button>
+<button data-lang="ko" type="button">한국어</button>
+<button data-lang="ja" type="button">日本語</button>
+</div>
 <h1>Dotplot</h1>
-<p class="sub">One row per user, one dot per active day — ask Claude, get your aha moment.</p>
-<img class="shot" src="/dotplot.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
+<p class="sub" id="t-sub">One row per user, one dot per active day — ask Claude, get your aha moment.</p>
+<img class="shot" id="hero" src="/dotplot-en.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
 
 <div class="install"><div class="scroll"><code id="cmd">claude mcp add dotplot -- uvx dotplot-mcp</code></div>
 <button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓ copied';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
-<div class="trust">
+<div class="trust" id="t-trust">
 <span>for Claude Code &amp; Cursor</span><span>open source (MIT)</span><span>no signup, no SDK</span>
 <span>your data never leaves your machine</span><span>stats computed by Python, not the LLM</span>
 </div>
 
 <div class="demo">
-<h2>Don't trust it? Run it here first.</h2>
-<p class="lead">Paste your own event log — 3 columns: <code>user_id, date, event</code><br>
+<h2 id="t-demoh">Don't trust it? Run it here first.</h2>
+<p class="lead" id="t-lead">Paste your own event log — 3 columns: <code>user_id, date, event</code><br>
 <span style="font-size:15px">From a CSV export, or straight out of your database (query below).</span></p>
 <textarea id="ta" spellcheck="false" placeholder="user_id,date,event
 u01,2026-07-01,play_song
@@ -113,19 +123,19 @@ u02,2026-07-01,purchase
 <button class="btn primary small" id="run">Find my aha moment</button>
 <button class="btn small" id="load">Load sample data</button>
 </div>
-<p class="privacy">Runs entirely in this tab — <b>nothing is uploaded.</b> Open DevTools → Network and watch: zero requests.</p>
-<details class="sqlhint"><summary>Data lives in Postgres / Supabase? Get 3 columns out of it</summary>
+<p class="privacy" id="t-priv">Runs entirely in this tab — <b>nothing is uploaded.</b> Open DevTools → Network and watch: zero requests.</p>
+<details class="sqlhint"><summary id="t-sqlsum">Data lives in Postgres / Supabase? Get 3 columns out of it</summary>
 <div class="body">
-<p>Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:</p>
+<p id="t-sqlp">Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:</p>
 <div class="sqlbar"><div class="scroll"><code id="sql">SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders ORDER BY 2 DESC LIMIT 2000;</code></div>
 <button class="copy" id="sqlcopy">copy</button></div>
-<p style="margin:8px 0 0">Once installed, you skip this step — Dotplot reads your database directly, on your machine.</p>
+<p style="margin:8px 0 0" id="t-sqlnote">Once installed, you skip this step — Dotplot reads your database directly, on your machine.</p>
 </div></details>
 <div class="out" id="out"></div>
 <div id="err" class="err"></div>
 </div>
 
-<div class="how">
+<div class="how" id="t-how">
 <div class="step"><span class="n">1</span>
 <h3>Install</h3>
 <p>Paste the one line above into your terminal. No signup, no SDK.</p></div>
@@ -136,8 +146,8 @@ u02,2026-07-01,purchase
 <h3>Just ask</h3>
 <p><span class="bubble">"find my aha moment"</span><br>Claude runs the analysis and hands you a shareable report link.</p></div>
 </div>
-<p style="font-size:18px;color:#8a877e;margin:0 0 10px">What you get in ~3 minutes:</p>
-<div class="gets">
+<p style="font-size:18px;color:#8a877e;margin:0 0 10px" id="t-getsh">What you get in ~3 minutes:</p>
+<div class="gets" id="t-gets">
 <span class="get">💡 your aha moment</span>
 <span class="get">📉 where new users drop off</span>
 <span class="get">📈 weekly retention</span>
@@ -146,7 +156,7 @@ u02,2026-07-01,purchase
 </div>
 <div class="btns">
 <a class="btn primary" href="https://github.com/brownglasses/dotplot-mcp">GitHub ⭐</a>
-<a class="btn" href="/r/9615d626a122.html">Sample report</a>
+<a class="btn" id="t-sample" href="/r/9615d626a122.html">Sample report</a>
 </div>
 </div>
 
@@ -600,7 +610,7 @@ function run(){
   const err = document.getElementById('err'), out = document.getElementById('out');
   err.textContent = ''; out.classList.remove('on');
   const rows = parseRows(document.getElementById('ta').value);
-  if (rows.length < 10){ err.textContent = 'Need at least ~10 rows of user_id,date,event — or load the sample.'; return; }
+  if (rows.length < 10){ err.textContent = T().err; return; }
   const valueEvent = pickValueEvent(rows);
   const users = buildUsers(rows, valueEvent);
   const today = Math.max.apply(null, rows.map(r => r.n));
@@ -611,29 +621,20 @@ function run(){
 
   let h = renderGrid(users, today, top ? top.ev : null);
   if (top){
-    h += '<div class="ahabox"><h3>💡 Your aha moment: ' + esc(top.ev) + '</h3><p>' +
-      top.didCount + ' users did it — <b>' + pct(top.rateA) + '</b> became regulars. ' +
-      'Of the ' + top.notCount + ' who didn\'t, only ' + pct(top.rateB) + ' did. ' +
-      'Their own activity rose <b>' + pct(top.change) + '</b> after doing it.</p></div>';
+    h += '<div class="ahabox"><h3>' + T().ahah(esc(top.ev)) + '</h3><p>' +
+      T().ahap(top.didCount, pct(top.rateA), top.notCount, pct(top.rateB), pct(top.change)) + '</p></div>';
   } else {
-    h += '<div class="ahabox" style="border-color:#c9c6bc;background:#faf9f6"><h3>No confident aha moment yet</h3>' +
-      '<p>Nothing cleared the bar — it needs 5+ users on each side and a clear before/after change. ' +
-      'That is the honest answer; the real tool uses the same guard so it never invents a signal.</p></div>';
+    h += '<div class="ahabox" style="border-color:#c9c6bc;background:#faf9f6"><h3>' + T().noneh + '</h3><p>' + T().nonep + '</p></div>';
   }
-  h += '<p class="glance"><span>⭕ ' + b.churned.length + ' used once, never returned</span>' +
-       '<span>🔵 ' + b.regular.length + ' almost daily</span>' +
-       '<span>📅 ' + b.weekend_only.length + ' weekend-only</span>' +
-       '<span>· ' + b.casual.length + ' occasional</span></p>';
-  h += '<p class="note">value event: <b>' + esc(valueEvent) + '</b> · ' + users.length + ' users · ' +
-       rows.length + ' events — same math as the Python engine.</p>';
-  h += '<div class="nextcta">That is one metric, on rows you pasted.<br>' +
-       'Install it to get the full report — funnel, weekly retention, history, shareable link.<br><br>' +
-       '<button class="btn primary small" id="cta2">Copy install command</button></div>';
+  h += '<p class="glance">' + T().glance(b.churned.length, b.regular.length, b.weekend_only.length, b.casual.length) + '</p>';
+  h += '<p class="note">' + T().note(esc(valueEvent), users.length, rows.length) + '</p>';
+  h += '<div class="nextcta">' + T().cta + '<br><br>' +
+       '<button class="btn primary small" id="cta2">' + T().ctab + '</button></div>';
   out.innerHTML = h; out.classList.add('on');
   const c2 = document.getElementById('cta2');
   if (c2) c2.addEventListener('click', function(){
     navigator.clipboard.writeText(document.getElementById('cmd').textContent);
-    this.textContent = '✓ command copied';
+    this.textContent = T().ctabd;
   });
 }
 
@@ -645,4 +646,126 @@ document.getElementById('run').addEventListener('click', run);
 document.getElementById('load').addEventListener('click', function(){
   document.getElementById('ta').value = SAMPLE; run();
 });
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+ en: {
+  sub: 'One row per user, one dot per active day — ask Claude, get your aha moment.',
+  trust: ['for Claude Code &amp; Cursor','open source (MIT)','no signup, no SDK','your data never leaves your machine','stats computed by Python, not the LLM'],
+  demoh: "Don't trust it? Run it here first.",
+  lead: 'Paste your own event log — 3 columns: <code>user_id, date, event</code><br><span style="font-size:15px">From a CSV export, or straight out of your database (query below).</span>',
+  run: 'Find my aha moment', load: 'Load sample data',
+  priv: 'Runs entirely in this tab — <b>nothing is uploaded.</b> Open DevTools → Network and watch: zero requests.',
+  sqlsum: 'Data lives in Postgres / Supabase? Get 3 columns out of it',
+  sqlp: 'Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:',
+  sqlnote: 'Once installed, you skip this step — Dotplot reads your database directly, on your machine.',
+  steps: [['Install','Paste the one line above into your terminal. No signup, no SDK.'],
+          ['Point at your data','A 3-column CSV (<code>user_id, date, event</code>) — or connect Postgres/Supabase directly.'],
+          ['Just ask','<span class="bubble">"find my aha moment"</span><br>Claude runs the analysis and hands you a shareable report link.']],
+  getsh: 'What you get in ~3 minutes:',
+  gets: ['💡 your aha moment','📉 where new users drop off','📈 weekly retention','🕐 change since last report','🌍 any language'],
+  sample: 'Sample report',
+  err: 'Need at least ~10 rows of user_id,date,event — or load the sample.',
+  ahah: t => '💡 Your aha moment: ' + t,
+  ahap: (d,ra,n,rb,c) => d + " users did it — <b>" + ra + "</b> became regulars. Of the " + n + " who didn't, only " + rb + " did. Their own activity rose <b>" + c + "</b> after doing it.",
+  noneh: 'No confident aha moment yet',
+  nonep: 'Nothing cleared the bar — it needs 5+ users on each side and a clear before/after change. That is the honest answer; the real tool uses the same guard so it never invents a signal.',
+  glance: (a,b,c,d) => '<span>⭕ '+a+' used once, never returned</span><span>🔵 '+b+' almost daily</span><span>📅 '+c+' weekend-only</span><span>· '+d+' occasional</span>',
+  note: (ev,u,r) => 'value event: <b>'+ev+'</b> · '+u+' users · '+r+' events — same math as the Python engine.',
+  cta: 'That is one metric, on rows you pasted.<br>Install it to get the full report — funnel, weekly retention, history, shareable link.',
+  ctab: 'Copy install command', ctabd: '✓ command copied'
+ },
+ ko: {
+  sub: '유저 한 명이 한 줄, 활동한 날이 점 하나 — Claude에게 물으면 아하 모먼트를 찾아줍니다.',
+  trust: ['Claude Code · Cursor 용','오픈소스 (MIT)','가입도 SDK도 없음','데이터는 내 컴퓨터를 벗어나지 않음','통계는 파이썬이 계산, LLM 아님'],
+  demoh: '못 믿겠다면, 여기서 먼저 돌려보세요.',
+  lead: '이벤트 로그를 붙여넣으세요 — 3칸: <code>user_id, date, event</code><br><span style="font-size:15px">CSV로 내보낸 것도, DB에서 바로 뽑은 것도 됩니다 (아래 쿼리).</span>',
+  run: '아하 모먼트 찾기', load: '샘플 데이터 넣기',
+  priv: '이 탭 안에서만 돌아갑니다 — <b>아무것도 업로드되지 않아요.</b> 개발자도구 → Network 열고 보세요: 요청 0건.',
+  sqlsum: '데이터가 Postgres / Supabase에 있나요? 3칸만 뽑는 법',
+  sqlp: '이걸 실행하고 결과를 위에 붙여넣으세요. <code>orders</code> / <code>created_at</code>은 본인 테이블로 바꾸면 됩니다:',
+  sqlnote: '설치하고 나면 이 단계는 사라집니다 — Dotplot이 내 컴퓨터에서 DB를 직접 읽으니까요.',
+  steps: [['설치','위 한 줄을 터미널에 붙여넣기. 가입도 SDK도 필요 없음.'],
+          ['데이터 가리키기','3칸짜리 CSV (<code>user_id, date, event</code>) — 또는 Postgres/Supabase 직접 연결.'],
+          ['그냥 말하기','<span class="bubble">"우리 아하 모먼트 찾아줘"</span><br>Claude가 분석하고 공유 가능한 리포트 링크를 줍니다.']],
+  getsh: '3분이면 받는 것:',
+  gets: ['💡 우리 아하 모먼트','📉 새 유저가 새는 지점','📈 주차별 리텐션','🕐 지난번 대비 변화','🌍 모든 언어'],
+  sample: '샘플 리포트',
+  err: 'user_id,date,event 형식으로 10줄 이상 필요해요 — 아니면 샘플을 넣어보세요.',
+  ahah: t => '💡 당신의 아하 모먼트: ' + t,
+  ahap: (d,ra,n,rb,c) => d + '명이 이걸 했고 그중 <b>' + ra + '</b>가 단골이 됐어요. 안 한 ' + n + '명 중에는 ' + rb + '뿐이고요. 이걸 한 뒤 본인 활동량이 <b>' + c + '</b> 늘었어요.',
+  noneh: '아직 확신할 만한 아하 모먼트가 없어요',
+  nonep: '기준을 넘은 행동이 없습니다 — 양쪽 각각 5명 이상과 뚜렷한 전/후 변화가 필요해요. 이게 정직한 답이고, 실제 도구도 같은 가드를 써서 없는 신호를 지어내지 않습니다.',
+  glance: (a,b,c,d) => '<span>⭕ 한 번 쓰고 안 옴 '+a+'명</span><span>🔵 거의 매일 '+b+'명</span><span>📅 주말에만 '+c+'명</span><span>· 가끔 '+d+'명</span>',
+  note: (ev,u,r) => '핵심 이벤트: <b>'+ev+'</b> · 유저 '+u+'명 · 이벤트 '+r+'건 — 파이썬 엔진과 같은 계산.',
+  cta: '방금은 붙여넣은 몇 줄로 뽑은 지표 하나예요.<br>설치하면 퍼널·주차별 리텐션·히스토리·공유 링크까지 전부 나옵니다.',
+  ctab: '설치 명령 복사', ctabd: '✓ 복사했어요'
+ },
+ ja: {
+  sub: '1行が1ユーザー、1つの点が利用した1日 — Claudeに聞けばアハ・モーメントが見つかります。',
+  trust: ['Claude Code・Cursor 用','オープンソース (MIT)','登録もSDKも不要','データは自分のPCから出ません','統計はPythonが計算、LLMではない'],
+  demoh: '信じられない？ まずここで動かしてみてください。',
+  lead: 'イベントログを貼り付け — 3列: <code>user_id, date, event</code><br><span style="font-size:15px">CSVでも、データベースから直接でも（下のクエリ）。</span>',
+  run: 'アハ・モーメントを探す', load: 'サンプルデータを入れる',
+  priv: 'このタブ内だけで動きます — <b>何もアップロードされません。</b> DevTools → Network を開いて確認を: リクエスト0件。',
+  sqlsum: 'データが Postgres / Supabase にある場合、3列を取り出す方法',
+  sqlp: 'これを実行して結果を上に貼り付けてください。<code>orders</code> / <code>created_at</code> はご自分のテーブルに:',
+  sqlnote: 'インストール後はこの手順は不要 — Dotplotが自分のPC上でDBを直接読みます。',
+  steps: [['インストール','上の1行をターミナルに貼り付けるだけ。登録もSDKも不要。'],
+          ['データを指定','3列のCSV (<code>user_id, date, event</code>) — または Postgres/Supabase に直接接続。'],
+          ['聞くだけ','<span class="bubble">「アハ・モーメントを探して」</span><br>Claudeが分析し、共有できるレポートのリンクを返します。']],
+  getsh: '約3分で分かること:',
+  gets: ['💡 アハ・モーメント','📉 新規ユーザーの離脱地点','📈 週次リテンション','🕐 前回からの変化','🌍 どの言語でも'],
+  sample: 'サンプルレポート',
+  err: 'user_id,date,event の形式で10行以上必要です — またはサンプルをお試しください。',
+  ahah: t => '💡 あなたのアハ・モーメント: ' + t,
+  ahap: (d,ra,n,rb,c) => d + '人が実行し、そのうち<b>' + ra + '</b>が常連になりました。していない' + n + '人では' + rb + 'のみ。実行後、本人の利用量が<b>' + c + '</b>増えました。',
+  noneh: 'まだ確信できるアハ・モーメントはありません',
+  nonep: '基準を超えた行動はありません — 各グループ5人以上と明確な前後変化が必要です。これが正直な答えで、実際のツールも同じガードを使い、無い信号を作り出しません。',
+  glance: (a,b,c,d) => '<span>⭕ 一度きり '+a+'人</span><span>🔵 ほぼ毎日 '+b+'人</span><span>📅 週末のみ '+c+'人</span><span>· たまに '+d+'人</span>',
+  note: (ev,u,r) => '価値イベント: <b>'+ev+'</b> · ユーザー'+u+'人 · イベント'+r+'件 — Pythonエンジンと同じ計算。',
+  cta: '今のは貼り付けた数行から出した指標ひとつです。<br>インストールすればファネル・週次リテンション・履歴・共有リンクまで揃います。',
+  ctab: 'インストールコマンドをコピー', ctabd: '✓ コピーしました'
+ }
+};
+let LANG = 'en';
+const T = () => I18N[LANG];
+
+function applyLang(l){
+  LANG = I18N[l] ? l : 'en';
+  const d = I18N[LANG];
+  document.documentElement.lang = LANG;
+  document.getElementById('t-sub').textContent = d.sub;
+  document.getElementById('hero').src = '/dotplot-' + LANG + '.png';
+  document.getElementById('t-trust').innerHTML = d.trust.map(s => '<span>'+s+'</span>').join('');
+  document.getElementById('t-demoh').textContent = d.demoh;
+  document.getElementById('t-lead').innerHTML = d.lead;
+  document.getElementById('run').textContent = d.run;
+  document.getElementById('load').textContent = d.load;
+  document.getElementById('t-priv').innerHTML = d.priv;
+  document.getElementById('t-sqlsum').textContent = d.sqlsum;
+  document.getElementById('t-sqlp').innerHTML = d.sqlp;
+  document.getElementById('t-sqlnote').textContent = d.sqlnote;
+  const steps = document.querySelectorAll('#t-how .step');
+  for (let i = 0; i < steps.length; i++){
+    steps[i].querySelector('h3').textContent = d.steps[i][0];
+    steps[i].querySelector('p').innerHTML = d.steps[i][1];
+  }
+  document.getElementById('t-getsh').textContent = d.getsh;
+  document.getElementById('t-gets').innerHTML = d.gets.map(s => '<span class="get">'+s+'</span>').join('');
+  document.getElementById('t-sample').textContent = d.sample;
+  const bs = document.querySelectorAll('#langbar button');
+  for (const b of bs) b.setAttribute('aria-current', String(b.dataset.lang === LANG));
+  try { localStorage.setItem('dotplot_lang', LANG); } catch(e){}
+  if (document.getElementById('out').classList.contains('on')) run();
+}
+document.querySelectorAll('#langbar button').forEach(b =>
+  b.addEventListener('click', () => applyLang(b.dataset.lang)));
+(function(){
+  let saved = null;
+  try { saved = localStorage.getItem('dotplot_lang'); } catch(e){}
+  const nav = (navigator.language || 'en').slice(0,2).toLowerCase();
+  applyLang(saved || (I18N[nav] ? nav : 'en'));
+})();
+
 </script></body></html>
