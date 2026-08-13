@@ -70,6 +70,7 @@ def render_html_report(
     mark_labels: dict[str, str] | None = None,   # {"create_playlist": "P = created a playlist"}
     extra_events: list[str] | None = None,       # 범례에서 딸깍으로 켤 수 있는 추가 이벤트들
     insights: list[str] | None = None,
+    aha_card: dict | None = None,  # {"event","letter","color","did_count","did_rate","not_count","not_rate","rows":[{"id","offsets":set}]}
     history: dict | None = None,   # {"date": "...", "rows": [{key,before,after,delta,good}]}
     funnel: dict | None = None,
     retention: list[dict] | None = None,
@@ -141,6 +142,43 @@ def render_html_report(
         ev: {"l": letter, "c": mark_colors[ev], "on": ev in mark_events}
         for ev, letter in all_marks.items()
     })
+
+    aha_html = ""
+    if aha_card and aha_card.get("rows"):
+        SPAN = 14  # 전후 14일
+        color = aha_card["color"]
+        head_cells = []
+        for off in range(-SPAN, SPAN + 1):
+            label = t(lang, "aha.day0") if off == 0 else (f"{off:+d}" if abs(off) in (7, 14) else "")
+            head_cells.append(f'<div class="acell ahead{" azero" if off == 0 else ""}">{label}</div>')
+        rows_html = []
+        for row in aha_card["rows"]:
+            cells = []
+            for off in range(-SPAN, SPAN + 1):
+                if off == 0:
+                    cells.append(f'<div class="acell azero"><span class="aha sm" style="background:{color}">{aha_card["letter"]}</span></div>')
+                elif off in row["offsets"]:
+                    cells.append('<div class="acell"><span class="adot"></span></div>')
+                else:
+                    cells.append('<div class="acell"><span class="aempty">·</span></div>')
+            rows_html.append(f'<div class="arow"><div class="aname">{row["id"].upper()}</div>{"".join(cells)}</div>')
+        did_pct, not_pct = aha_card["did_rate"], aha_card["not_rate"]
+        bars = (
+            f'<div class="frow"><div class="flabel">{t(lang, "aha.did_bar", n=aha_card["did_count"])}</div>'
+            f'<div class="fbar"><div class="ffill" style="width:{max(did_pct*100,2):.0f}%;background:{color}"></div></div>'
+            f'<div class="fnum"><b>{did_pct:.0%}</b> <small>{t(lang, "aha.regulars")}</small></div></div>'
+            f'<div class="frow"><div class="flabel">{t(lang, "aha.not_bar", n=aha_card["not_count"])}</div>'
+            f'<div class="fbar"><div class="ffill" style="width:{max(not_pct*100,2):.0f}%;background:#c9c6bc"></div></div>'
+            f'<div class="fnum">{not_pct:.0%} <small>{t(lang, "aha.regulars")}</small></div></div>'
+        )
+        aha_html = (
+            f'<div class="card ahacard" style="border-color:{color}">'
+            f'<h2>{t(lang, "aha.title", name=aha_card["event"])}</h2>'
+            f'<p class="note" style="margin:0 0 10px">{t(lang, "aha.subtitle")}</p>'
+            f'<div class="agrid"><div class="arow"><div class="aname"></div>{"".join(head_cells)}</div>{"".join(rows_html)}</div>'
+            f'<div style="margin-top:16px">{bars}</div>'
+            f'<p class="note">{t(lang, "aha.footer")}</p></div>'
+        )
 
     history_card = ""
     if history and history.get("rows"):
@@ -261,6 +299,16 @@ td.we,th.we{{background:#fae8dd}}
 .hdelta.up{{color:#0f8a3d}}
 .hdelta.down{{color:#d0442c}}
 .hdelta.flat{{color:#999}}
+.ahacard{{border-width:2.5px}}
+.agrid{{overflow-x:auto}}
+.arow{{display:flex;align-items:center}}
+.aname{{width:92px;flex-shrink:0;font-size:15px;color:#666;white-space:nowrap}}
+.acell{{width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0}}
+.acell.ahead{{font-size:13px;color:#999;height:20px;white-space:nowrap}}
+.acell.azero{{background:#2222220a;border-radius:4px}}
+.adot{{width:12px;height:12px;border-radius:50%;background:#2f7de1}}
+.aempty{{color:#ddd;font-size:12px}}
+.aha.sm{{width:18px;height:18px;line-height:18px;font-size:12px;border-radius:4px}}
 .frow{{display:flex;align-items:center;gap:12px;margin:8px 0}}
 .flabel{{width:170px;font-size:19px;flex-shrink:0}}
 .fbar{{flex:1;height:26px;background:#f1efe8;border-radius:6px;overflow:hidden}}
@@ -278,6 +326,7 @@ td.we,th.we{{background:#fae8dd}}
   <span><span class="orange"></span> {t(lang, "report.legend.weekend_user")}</span>
   {aha_legend}
 </div>
+{aha_html}
 <div class="card"><h2>{t(lang, "report.glance")}</h2><ul>{summary}</ul></div>
 {history_card}
 {funnel_card}

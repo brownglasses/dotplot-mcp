@@ -58,6 +58,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "history.regular_rate": "Core fans",
         "history.churned_rate": "Churned after day one",
         "history.w1_retention": "Week-1 retention",
+        # 아하 모먼트 카드
+        "aha.title": "💡 Aha moment found: {name}",
+        "aha.subtitle": "Same users, aligned on the day they first did it — before vs after",
+        "aha.day0": "did it",
+        "aha.did_bar": "Did it ({n} users)",
+        "aha.not_bar": "Didn't ({n} users)",
+        "aha.regulars": "became regulars",
+        "aha.footer": "Correlation, not proof — nudge new users to do this, then A/B test it.",
     },
     "ko": {
         "bucket.churned": "한번 쓰고 떠남 (온보딩 의심)",
@@ -104,6 +112,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "history.regular_rate": "찐팬 비율",
         "history.churned_rate": "첫날 이탈률",
         "history.w1_retention": "1주차 리텐션",
+        "aha.title": "💡 아하 모먼트 발견: {name}",
+        "aha.subtitle": "같은 유저들을 '처음 한 날' 기준으로 정렬 — 전과 후",
+        "aha.day0": "한 날",
+        "aha.did_bar": "한 유저 ({n}명)",
+        "aha.not_bar": "안 한 유저 ({n}명)",
+        "aha.regulars": "가 단골이 됨",
+        "aha.footer": "상관관계입니다 — 온보딩에서 유도해보고 A/B 테스트로 확인하세요.",
     },
     "ja": {
         "bucket.churned": "一度使って離脱 (オンボーディングに問題?)",
@@ -150,6 +165,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "history.regular_rate": "コアファン率",
         "history.churned_rate": "初日離脱率",
         "history.w1_retention": "1週目リテンション",
+        "aha.title": "💡 アハ・モーメント発見: {name}",
+        "aha.subtitle": "同じユーザーを「初めて行った日」で揃える — 前と後",
+        "aha.day0": "行った日",
+        "aha.did_bar": "行った ({n}人)",
+        "aha.not_bar": "行っていない ({n}人)",
+        "aha.regulars": "が常連に",
+        "aha.footer": "相関関係です — オンボーディングで促し、A/Bテストで確認を。",
     },
 }
 

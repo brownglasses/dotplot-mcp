@@ -199,12 +199,37 @@ def generate_report(
     history_card = None
     if prev:
         history_card = {"date": prev["data_end"], "rows": hist_mod.diff(prev, snap)}
+    # 아하 모먼트 카드: 1위 후보를 '한 날 = 0일' 정렬 그림으로
+    aha_card = None
+    top = next((c for c in aha_results if (c["behavior_change"] or 0) >= 0.3), None)
+    if top and top["event"] in mark_events:
+        ev = top["event"]
+        doers = []
+        for u in users.values():
+            first = min((d for d, evs in u.special_days.items() if ev in evs), default=None)
+            if first is None:
+                continue
+            offsets = {(d - first).days for d in u.value_days if -14 <= (d - first).days <= 14}
+            doers.append({"id": u.user_id, "offsets": offsets, "after": len([o for o in offsets if o > 0])})
+        doers.sort(key=lambda r: -r["after"])
+        palette_color = "#e05c26"
+        aha_card = {
+            "event": ev,
+            "letter": mark_events[ev],
+            "color": palette_color,
+            "did_count": top["did_count"],
+            "did_rate": top["did_regular_rate"],
+            "not_count": top["not_count"],
+            "not_rate": top["not_regular_rate"],
+            "rows": doers[:7],
+        }
+
     # 나머지 이벤트는 범례에서 딸깍으로 켤 수 있게 (아하 순위 순, 최대 6개)
     extra_events = [c["event"] for c in aha_results if c["event"] not in mark_events][:6]
     html = report_mod.render_html_report(
         subset, start, weeks * 7, today,
         mark_events=mark_events, mark_labels=mark_labels, extra_events=extra_events,
-        insights=insights, history=history_card, funnel=funnel, retention=retention, lang=lang,
+        insights=insights, aha_card=aha_card, history=history_card, funnel=funnel, retention=retention, lang=lang,
     )
     with open(output_path, "w") as f:
         f.write(html)
