@@ -344,6 +344,30 @@ def history_compare(csv_path: str, value_event: str) -> dict:
     return {"previous_date": prev["data_end"], "current": snap, "changes": hist_mod.diff(prev, snap)}
 
 
+@mcp.tool()
+def find_similar_cases(csv_path: str, value_event: str, industry: str | None = None) -> dict:
+    """내 진단 결과와 비슷한 상황을 겪은 실제 회사들의 개선 사례를 찾는다.
+
+    공개 자료(YC 강연, First Round, 창업자 인터뷰)에서 큐레이션한 사례 도서관 v0.
+    반환된 사례를 사용자에게 전할 때:
+    - 'matched_on'(왜 이 사례가 매칭됐는지)을 함께 설명하라
+    - 출처를 명시하라 — 2차 인용이므로 정확한 수치는 원문 확인을 권하라
+    - 사례의 처방을 사용자의 코드에 적용해볼지 물어라 (예: 온보딩에 아하 행동 삽입)
+    industry: b2c|b2b|commerce|content|social|tool|game|other (같은 업종 가산점)"""
+    import cases as cases_mod
+
+    events = analysis.load_events(csv_path)
+    users = analysis.build_users(events, value_event)
+    today = max(e["date"] for e in events)
+    tags = cases_mod.diagnose_tags(users, events, value_event, today)
+    matched = cases_mod.match_cases(tags, industry)
+    return {
+        "내 진단 태그": sorted(tags),
+        "비슷한 사례": matched,
+        "참고": "공개 자료 큐레이션 — 맥락이 다를 수 있으니 실험으로 검증할 것",
+    }
+
+
 HOSTING_DIR = "hosting"  # server.py 옆의 Vercel 프로젝트 폴더
 
 

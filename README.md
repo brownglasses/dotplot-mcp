@@ -69,6 +69,7 @@ SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
 | `retention_curve` | Weekly retention — the number investors always ask |
 | `load_from_db` | Pull events straight from Postgres/Supabase (no CSV export step) |
 | `history_compare` | "Since last report" deltas — snapshots auto-saved locally on every report |
+| `find_similar_cases` | Match your diagnosis to real documented cases (Facebook's 7-friends, Slack's 2k messages...) |
 | `audit_tracking` | Compare events in code vs data (find tracking gaps) |
 | `generate_report` | Hand-drawn style HTML report + rule-based insights |
 | `publish_report` | Host the report at a random URL, get a share link (Vercel) |
