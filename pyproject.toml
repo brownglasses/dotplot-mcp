@@ -10,6 +10,13 @@ dependencies = ["mcp>=1.2.0"]
 [project.optional-dependencies]
 db = ["psycopg[binary]>=3.1"]
 
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]        # 평면 모듈 구조라 저장소 루트를 import 경로에 넣는다
+testpaths = ["tests"]
+
 [project.urls]
 Homepage = "https://github.com/brownglasses/dotplot-mcp"
 
