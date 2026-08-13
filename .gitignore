@@ -13,3 +13,4 @@ hosting/.vercel/
 .env
 .env.*
 report_*.html
+.dotplot/

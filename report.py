@@ -70,6 +70,7 @@ def render_html_report(
     mark_labels: dict[str, str] | None = None,   # {"create_playlist": "P = created a playlist"}
     extra_events: list[str] | None = None,       # 범례에서 딸깍으로 켤 수 있는 추가 이벤트들
     insights: list[str] | None = None,
+    history: dict | None = None,   # {"date": "...", "rows": [{key,before,after,delta,good}]}
     funnel: dict | None = None,
     retention: list[dict] | None = None,
     lang: str = "en",
@@ -140,6 +141,24 @@ def render_html_report(
         ev: {"l": letter, "c": mark_colors[ev], "on": ev in mark_events}
         for ev, letter in all_marks.items()
     })
+
+    history_card = ""
+    if history and history.get("rows"):
+        hrows = []
+        for r in history["rows"]:
+            fmt = (lambda v: f"{v:.0%}") if "rate" in r["key"] or "retention" in r["key"] else str
+            arrow = "▲" if r["delta"] > 0 else ("▼" if r["delta"] < 0 else "—")
+            klass = "up" if r["good"] and r["delta"] != 0 else ("down" if r["delta"] != 0 else "flat")
+            delta_txt = f"{abs(r['delta']):.0%}p" if "rate" in r["key"] or "retention" in r["key"] else f"{abs(r['delta']):.0f}"
+            hrows.append(
+                f'<div class="hrow"><div class="hlabel">{t(lang, "history." + r["key"])}</div>'
+                f'<div class="hval">{fmt(r["before"])} → <b>{fmt(r["after"])}</b> '
+                f'<span class="hdelta {klass}">{arrow} {delta_txt}</span></div></div>'
+            )
+        history_card = (
+            f'<div class="card"><h2>{t(lang, "history.title", date=history["date"])}</h2>'
+            f'{"".join(hrows)}</div>'
+        )
 
     funnel_card = ""
     if funnel and funnel["steps"][0]["count"] > 0:
@@ -236,6 +255,12 @@ td.we,th.we{{background:#fae8dd}}
 .chip:hover{{background:#2222220d}}
 .chip.off{{opacity:.35}}
 .chip.off .aha.lg::before{{content:"+ "}}
+.hrow{{display:flex;align-items:center;gap:12px;margin:7px 0;font-size:20px}}
+.hlabel{{width:220px;flex-shrink:0}}
+.hdelta{{font-size:17px;margin-left:6px}}
+.hdelta.up{{color:#0f8a3d}}
+.hdelta.down{{color:#d0442c}}
+.hdelta.flat{{color:#999}}
 .frow{{display:flex;align-items:center;gap:12px;margin:8px 0}}
 .flabel{{width:170px;font-size:19px;flex-shrink:0}}
 .fbar{{flex:1;height:26px;background:#f1efe8;border-radius:6px;overflow:hidden}}
@@ -254,6 +279,7 @@ td.we,th.we{{background:#fae8dd}}
   {aha_legend}
 </div>
 <div class="card"><h2>{t(lang, "report.glance")}</h2><ul>{summary}</ul></div>
+{history_card}
 {funnel_card}
 {retention_card}
 {insight_card}

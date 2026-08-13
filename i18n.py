@@ -52,6 +52,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "retention.title": "Weekly retention",
         "retention.subtitle": "% of users active in week N after their signup",
         "retention.week": "W{n}",
+        # 히스토리 (지난번 대비)
+        "history.title": "Since the last report ({date})",
+        "history.users": "Users",
+        "history.regular_rate": "Core fans",
+        "history.churned_rate": "Churned after day one",
+        "history.w1_retention": "Week-1 retention",
     },
     "ko": {
         "bucket.churned": "한번 쓰고 떠남 (온보딩 의심)",
@@ -93,6 +99,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "retention.title": "주차별 리텐션",
         "retention.subtitle": "가입 후 N주차에 활동한 유저 비율",
         "retention.week": "{n}주",
+        "history.title": "지난 리포트({date}) 대비",
+        "history.users": "유저 수",
+        "history.regular_rate": "찐팬 비율",
+        "history.churned_rate": "첫날 이탈률",
+        "history.w1_retention": "1주차 리텐션",
     },
     "ja": {
         "bucket.churned": "一度使って離脱 (オンボーディングに問題?)",
@@ -134,6 +145,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "retention.title": "週次リテンション",
         "retention.subtitle": "登録後N週目に活動したユーザーの割合",
         "retention.week": "{n}週",
+        "history.title": "前回レポート({date})比",
+        "history.users": "ユーザー数",
+        "history.regular_rate": "コアファン率",
+        "history.churned_rate": "初日離脱率",
+        "history.w1_retention": "1週目リテンション",
     },
 }
 

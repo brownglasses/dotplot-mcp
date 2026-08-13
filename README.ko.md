@@ -67,6 +67,7 @@ SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
 | `onboarding_funnel` | 가입 → 첫 가치 → 재방문 → 활동 유지: 어디서 새는지 |
 | `retention_curve` | 주차별 리텐션 — 투자자가 반드시 묻는 그 숫자 |
 | `load_from_db` | Postgres/Supabase에서 이벤트 직접 추출 (CSV 단계 제거) |
+| `history_compare` | "지난번 대비" 변화 — 리포트 만들 때마다 스냅샷이 로컬에 자동 저장 |
 | `audit_tracking` | 코드 속 이벤트 vs 데이터 대조 (추적 구멍 발견) |
 | `generate_report` | YC 손그림 스타일 HTML 리포트 + 규칙 기반 인사이트 |
 | `publish_report` | 리포트를 무작위 주소로 호스팅, 공유 링크 발급 (Vercel) |

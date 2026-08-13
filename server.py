@@ -189,12 +189,22 @@ def generate_report(
     insights = report_mod.build_insights(len(users), buckets, aha_results, labels, lang=lang)
     funnel = analysis.onboarding_funnel(users, today)
     retention = analysis.retention_curve(users, today)
+
+    # 히스토리: 스냅샷 자동 저장 + 지난번 대비 카드
+    import history as hist_mod
+
+    snap = hist_mod.make_snapshot(users, value_event, today)
+    prev = hist_mod.previous_snapshot(snap)
+    hist_mod.append_snapshot(snap)
+    history_card = None
+    if prev:
+        history_card = {"date": prev["data_end"], "rows": hist_mod.diff(prev, snap)}
     # 나머지 이벤트는 범례에서 딸깍으로 켤 수 있게 (아하 순위 순, 최대 6개)
     extra_events = [c["event"] for c in aha_results if c["event"] not in mark_events][:6]
     html = report_mod.render_html_report(
         subset, start, weeks * 7, today,
         mark_events=mark_events, mark_labels=mark_labels, extra_events=extra_events,
-        insights=insights, funnel=funnel, retention=retention, lang=lang,
+        insights=insights, history=history_card, funnel=funnel, retention=retention, lang=lang,
     )
     with open(output_path, "w") as f:
         f.write(html)
@@ -290,6 +300,23 @@ def load_from_db(query: str, output_csv: str = "events.csv", db_url: str | None 
                 r[idx["event"]],
             ])
     return {"saved": output_csv, "rows": len(rows), "next": "describe_events로 확인 후 분석 시작"}
+
+
+@mcp.tool()
+def history_compare(csv_path: str, value_event: str) -> dict:
+    """현재 지표를 지난 분석 스냅샷과 비교한다 ("지난번 대비" 숫자).
+    스냅샷은 generate_report 때마다 ./.dotplot/history.json에 자동으로 쌓인다.
+    처음 분석이라 비교 대상이 없으면 그렇게 알려줄 것."""
+    import history as hist_mod
+
+    events = analysis.load_events(csv_path)
+    users = analysis.build_users(events, value_event)
+    today = max(e["date"] for e in events)
+    snap = hist_mod.make_snapshot(users, value_event, today)
+    prev = hist_mod.previous_snapshot(snap)
+    if not prev:
+        return {"current": snap, "note": "첫 스냅샷 — 비교할 과거가 아직 없습니다. 다음 분석부터 변화가 보입니다."}
+    return {"previous_date": prev["data_end"], "current": snap, "changes": hist_mod.diff(prev, snap)}
 
 
 HOSTING_DIR = "hosting"  # server.py 옆의 Vercel 프로젝트 폴더
