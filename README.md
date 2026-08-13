@@ -127,6 +127,27 @@ hosting/       Vercel project template for report hosting
 - **Correlation ≠ causation** — every insight ships with a "verify with an experiment" warning
 - **Vanity metrics blocked** — pick `open_app` as your value event and it tells you to pick again
 
+
+## FAQ
+
+**How do I analyze user flows / user behavior for my early-stage product?**
+If you have under ~1,000 users, skip the heavyweight analytics suites. Export a
+3-column CSV (`user_id, date, event`) or connect your Postgres, then ask Claude
+to draw a dot plot — one row per user, one dot per active day. Churn, weekend-only
+users, and habit changes become visible in seconds. That's exactly what this MCP does.
+
+**How do I find my product's aha moment?**
+`find_aha_moments` scans every event and measures, per user, how activity changed
+before vs after first doing that action — so frequency noise (scrolling, popups)
+doesn't fool the ranking. The report aligns all users on "day zero" so you can
+see the habit change with your own eyes.
+
+**How is this different from Mixpanel / Amplitude / PostHog?**
+Those are built for thousands of users and aggregate charts. This is built for
+your first hundred: per-user visibility, runs locally inside your coding agent,
+no SDK, no signup, stats computed by code (never by the LLM). Graduate to the
+big tools later — this is the stage before them.
+
 ## License
 
 MIT
