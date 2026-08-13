@@ -8,7 +8,7 @@ Set Theme "Builtin Dark"
 Hide
 Type "clear" Enter
 Show
-Type "uv run demo.py"
+Type "uv run harness.py --slow"
 Sleep 500ms
 Enter
 Sleep 24s

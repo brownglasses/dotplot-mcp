@@ -44,7 +44,7 @@ claude mcp add dotplot -- uvx dotplot-mcp
 
 ```bash
 uv run sample_data.py   # events.csv 생성 (가짜 유저 40명)
-uv run demo.py          # 전체 파이프라인을 눈으로 확인
+uv run harness.py       # 전체 파이프라인을 눈으로 확인
 ```
 
 그다음 Claude에게:

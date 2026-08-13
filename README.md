@@ -45,7 +45,7 @@ No data yet? Clone and try the sample:
 
 ```bash
 uv run sample_data.py   # generates events.csv (40 fake users)
-uv run demo.py          # watch the whole pipeline run
+uv run harness.py       # watch the whole pipeline run
 ```
 
 Then ask Claude:
