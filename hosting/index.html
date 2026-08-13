@@ -53,6 +53,17 @@ h1{font-size:46px;margin:0 0 4px}
 .demo textarea:focus{outline:none;border-color:var(--blue)}
 .demorow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 0}
 .privacy{font-size:15px;color:#8a877e;margin:10px 0 0;text-align:center}
+.sqlhint{margin:12px 0 0;border-top:1.5px dashed var(--line);padding:12px 0 0}
+.sqlhint summary{font-size:16px;color:#8a877e;cursor:pointer;list-style:none;text-align:center}
+.sqlhint summary::-webkit-details-marker{display:none}
+.sqlhint summary::before{content:"▸ ";color:var(--blue)}
+.sqlhint[open] summary::before{content:"▾ "}
+.sqlhint .body{margin:10px 0 0}
+.sqlhint p{font-size:15px;color:#8a877e;margin:0 0 6px}
+.sqlbar{display:flex;align-items:center;gap:8px;background:#1d2833;color:#d8e6f7;border-radius:10px;
+  padding:10px 12px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.sqlbar .scroll{overflow-x:auto;flex:1}
+.sqlbar code{white-space:pre}
 .privacy b{color:#0f8a3d}
 .out{margin:18px 0 0;display:none}
 .out.on{display:block}
@@ -90,7 +101,8 @@ h1{font-size:46px;margin:0 0 4px}
 
 <div class="demo">
 <h2>Don't trust it? Run it here first.</h2>
-<p class="lead">Paste your own event log — 3 columns: <code>user_id, date, event</code></p>
+<p class="lead">Paste your own event log — 3 columns: <code>user_id, date, event</code><br>
+<span style="font-size:15px">From a CSV export, or straight out of your database (query below).</span></p>
 <textarea id="ta" spellcheck="false" placeholder="user_id,date,event
 u01,2026-07-01,play_song
 u01,2026-07-02,play_song
@@ -102,6 +114,13 @@ u02,2026-07-01,purchase
 <button class="btn small" id="load">Load sample data</button>
 </div>
 <p class="privacy">Runs entirely in this tab — <b>nothing is uploaded.</b> Open DevTools → Network and watch: zero requests.</p>
+<details class="sqlhint"><summary>Data lives in Postgres / Supabase? Get 3 columns out of it</summary>
+<div class="body">
+<p>Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:</p>
+<div class="sqlbar"><div class="scroll"><code id="sql">SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders ORDER BY 2 DESC LIMIT 2000;</code></div>
+<button class="copy" id="sqlcopy">copy</button></div>
+<p style="margin:8px 0 0">Once installed, you skip this step — Dotplot reads your database directly, on your machine.</p>
+</div></details>
 <div class="out" id="out"></div>
 <div id="err" class="err"></div>
 </div>
@@ -618,6 +637,10 @@ function run(){
   });
 }
 
+document.getElementById('sqlcopy').addEventListener('click', function(){
+  navigator.clipboard.writeText(document.getElementById('sql').textContent);
+  this.textContent = '✓'; const b = this; setTimeout(function(){ b.textContent = 'copy'; }, 1500);
+});
 document.getElementById('run').addEventListener('click', run);
 document.getElementById('load').addEventListener('click', function(){
   document.getElementById('ta').value = SAMPLE; run();
