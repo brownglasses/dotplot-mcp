@@ -130,3 +130,5 @@ hosting/       Vercel project template for report hosting
 ## License
 
 MIT
+
+<!-- mcp-name: io.github.brownglasses/dotplot-mcp -->
