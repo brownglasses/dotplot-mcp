@@ -24,12 +24,43 @@ h1{font-size:46px;margin:0 0 4px}
 .btn{font-size:20px;text-decoration:none;color:#222;border:2px solid #222;border-radius:12px;
   padding:11px 24px;box-shadow:3px 3px 0 #22222220;background:#fff}
 .btn.primary{background:#2f7de1;border-color:#2f7de1;color:#fff}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:34px 0 8px;text-align:left}
+@media(max-width:640px){.how{grid-template-columns:1fr}}
+.step{border:2px solid #222;border-radius:14px;background:#fff;padding:14px 16px;box-shadow:3px 3px 0 #22222215}
+.step .n{display:inline-block;width:26px;height:26px;border-radius:50%;background:#2f7de1;color:#fff;
+  text-align:center;line-height:26px;font-size:16px;margin-bottom:6px}
+.step h3{font-size:20px;margin:0 0 4px}
+.step p{font-size:16px;color:#8a877e;margin:0;line-height:1.45}
+.step code{font-size:12.5px;background:#f1efe8;padding:2px 6px;border-radius:5px}
+.bubble{background:#eaf2fc;border-radius:12px;padding:8px 12px;font-size:15px;color:#1d2833;
+  display:inline-block;margin-top:6px}
+.gets{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin:6px 0 30px}
+.get{font-size:15.5px;border:1.5px solid #22222245;border-radius:99px;padding:5px 14px;background:#fff}
 </style></head><body><div class="wrap">
 <h1>Dotplot</h1>
 <p class="sub">One row per user, one dot per active day — ask Claude, get your aha moment.</p>
 <img class="shot" src="/dotplot.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
 <div class="install"><div class="scroll"><code id="cmd">claude mcp add dotplot -- uvx dotplot-mcp</code></div>
 <button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
+<div class="how">
+<div class="step"><span class="n">1</span>
+<h3>Install</h3>
+<p>Paste the one line above into your terminal. No signup, no SDK.</p></div>
+<div class="step"><span class="n">2</span>
+<h3>Point at your data</h3>
+<p>A 3-column CSV (<code>user_id, date, event</code>) — or connect Postgres/Supabase directly.</p></div>
+<div class="step"><span class="n">3</span>
+<h3>Just ask</h3>
+<p><span class="bubble">"find my aha moment"</span><br>Claude runs the analysis and hands you a shareable report link.</p></div>
+</div>
+<p style="font-size:18px;color:#8a877e;margin:0 0 10px">What you get in ~3 minutes:</p>
+<div class="gets">
+<span class="get">💡 your aha moment</span>
+<span class="get">📉 where new users drop off</span>
+<span class="get">📈 weekly retention</span>
+<span class="get">🕐 change since last report</span>
+<span class="get">🌍 any language</span>
+</div>
 <div class="btns">
 <a class="btn primary" href="/r/9615d626a122.html">Sample report</a>
 <a class="btn" href="https://github.com/brownglasses/dotplot-mcp">GitHub ⭐</a>
