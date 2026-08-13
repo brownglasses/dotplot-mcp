@@ -5,11 +5,11 @@
 """Dot Plot MCP 서버 — 얇은 껍데기.
 
 계산은 전부 analysis.py가 하고, 여기서는 그걸 MCP 툴로 노출만 한다.
-Claude가 이 툴들을 부르면:
-  1층 dot_plot        → 표를 그려준다 (계산: 코드)
-  2층 classify_users  → 패턴을 찾아준다 (계산: 코드)
-  3층 find_aha_moments→ 아하 모먼트 후보를 준다 (계산: 코드)
 그다음 '그래서 뭘 해야 하는지' 해석은 Claude가 한다. ← 여기가 상품
+
+이 파일의 docstring과 반환값은 영어로 쓴다. 에이전트가 읽는 글이고,
+사용자는 전 세계에 있기 때문이다. 코드 주석은 한국어 — 그건 우리가 읽는 것이다.
+사람에게 보일 문장은 여기 두지 말고 i18n.py로 보낼 것.
 """
 from datetime import date, timedelta
 
@@ -162,8 +162,12 @@ def analyze(
 
 @mcp.tool()
 def describe_events(csv_path: str) -> dict:
-    """이벤트 CSV의 구조를 파악한다: 기간, 유저 수, 이벤트 종류별 개수.
-    분석 시작 전에 항상 먼저 불러서 어떤 이벤트가 있는지 확인할 것."""
+    """Shape of an event CSV: date range, user count, events by type.
+
+    Mostly useful when you want to look before choosing a value event yourself.
+    For a normal "analyze my product" request call analyze instead — it does
+    this step and everything after it.
+    """
     events = analysis.load_events(csv_path)
     counts: dict[str, int] = {}
     for e in events:
@@ -178,7 +182,8 @@ def describe_events(csv_path: str) -> dict:
         # value_event 후보를 코드가 미리 걸러준다 — 허영 지표는 애초에 거부되므로
         "value_event_candidates": [e for e in ranked if not analysis.is_vanity(e)],
         "rejected_as_vanity": [e for e in ranked if analysis.is_vanity(e)],
-        "hint": "value_event로는 '진짜 가치를 얻은 행동'을 골라라. 허영 지표는 코드가 거부한다.",
+        "hint": "A value event means 'this user got something real'. Vanity "
+                "metrics are rejected by the code, not left to your judgement.",
     }
 
 
@@ -190,9 +195,11 @@ def dot_plot(
     weeks: int = 6,
     lang: str = "en",
 ) -> str:
-    """유저 한 명 = 한 줄, 하루 = 한 칸인 도트 플롯을 그린다.
-    ◎=첫 활동일, ●=핵심 가치 이벤트 발생, ·=없음.
-    mark_events로 특별 이벤트에 글자를 붙일 수 있다. 예: {"create_playlist": "P"}"""
+    """Text dot plot: one row per user, one cell per day.
+
+    ◎ first active day, ● value event, · nothing. mark_events puts a letter on
+    other actions, e.g. {"create_playlist": "P"}.
+    """
     events, users, _ = _prepare(csv_path, value_event)
     start = min(e["date"] for e in events)
     return analysis.render_dot_plot(users, start, weeks * 7, mark_events, lang=lang)
@@ -200,9 +207,11 @@ def dot_plot(
 
 @mcp.tool()
 def classify_users(csv_path: str, value_event: str, lang: str = "en") -> dict:
-    """유저를 행동 패턴별로 자동 분류한다:
-    churned(한번 쓰고 떠남) / weekend_only(주말만) / regular(찐팬) / casual(가끔).
-    lang: 사람이 읽을 라벨의 언어 (en/ko/ja)."""
+    """Sort users by behaviour: churned (used once, never returned),
+    weekend_only, regular (almost daily), casual.
+
+    lang sets the human-readable labels (en/ko/ja); the keys stay in English.
+    """
     from i18n import t
 
     _, users, today = _prepare(csv_path, value_event)
@@ -215,34 +224,43 @@ def classify_users(csv_path: str, value_event: str, lang: str = "en") -> dict:
 
 @mcp.tool()
 def find_aha_moments(csv_path: str, value_event: str) -> dict:
-    """모든 후보 이벤트를 자동으로 훑어서 아하 모먼트 후보를 찾는다.
-    '이 행동을 한 유저는 단골이 될 확률이 얼마나 높아지는가(lift)'를 계산.
-    주의: 상관관계일 뿐 인과가 아니다 — 반드시 실험으로 확인하라고 안내할 것."""
+    """Scan every action for the one that turns users into regulars.
+
+    Ranked by behaviour_change — how much a user's own activity rose after they
+    first did it — because comparing groups (lift) rewards actions that frequent
+    users happen to do. Tell the user this is correlation, not cause.
+    """
     events, users, today = _prepare(csv_path, value_event)
     return {
         "candidates": analysis.find_aha_moments(events, users, value_event, today),
-        "caution": "lift가 크더라도 상관관계다. 온보딩에 넣어 A/B 테스트로 검증하라.",
+        "caution": "Correlation, not cause. The way to find out is to put the "
+                   "action in onboarding and A/B test it.",
     }
 
 
 @mcp.tool()
 def audit_tracking(code_events: list[str], csv_path: str) -> dict:
-    """코드에 심어진 이벤트와 실제 데이터에 찍힌 이벤트를 대조한다.
+    """Compare the events logged in the code against the events in the data.
 
-    사용법 (에이전트 지침):
-    1. 먼저 프로젝트 코드에서 이벤트 로깅 호출을 직접 찾아라.
-       흔한 패턴: logEvent(...), track(...), analytics.capture(...),
-       posthog.capture(...), gtag('event', ...), mixpanel.track(...)
-    2. 찾아낸 이벤트 이름 목록을 code_events로 넘겨라.
-    3. 결과 해석:
-       - '코드에만 있음' → 로깅이 고장났거나 그 기능을 아무도 안 쓴다
-       - '데이터에만 있음' → 죽은 코드이거나 네 스캔이 누락했다 (다시 찾아볼 것)
-    4. 추가로, 코드에서 본 '중요한 기능인데 로깅이 아예 없는 곳'
-       (버튼 핸들러, 핵심 액션)을 찾아라.
-    5. 구멍마다 처방까지 내라: 그 파일·그 함수에 맞는 로깅 코드 한 줄을
-       실제 코드 스타일에 맞춰 작성해 보여주고, "넣어드릴까요?"라고 물어라.
-       동의하면 직접 수정해라. 이벤트 이름은 기존 네이밍 규칙을 따를 것
-       (예: 기존이 snake_case면 follow_artist, camelCase면 followArtist)."""
+    This is also the tool for a project that tracks nothing yet — there is no
+    data to analyse, but there is code to read.
+
+    How to use it:
+    1. Search the codebase for logging calls yourself. Common shapes:
+       logEvent(...), track(...), analytics.capture(...), posthog.capture(...),
+       gtag('event', ...), mixpanel.track(...)
+    2. Pass the event names you found as code_events.
+    3. Read the result:
+       - in_code_never_fired  logging is broken, or nobody uses that feature
+       - in_data_not_in_code  dead code, or your search missed it (look again)
+    4. Then find what has no logging at all — button handlers and core actions
+       that should be recorded and aren't. That gap won't appear in either list,
+       and it is usually the important one.
+    5. Prescribe, don't just report. For each hole write the one line of logging
+       that belongs in that file, in that function, matching the surrounding
+       style, show it, and ask whether to add it. Follow the project's existing
+       naming (follow_artist if it is snake_case, followArtist if camelCase).
+    """
     events = analysis.load_events(csv_path)
     data_events = {e["event"] for e in events}
     return analysis.audit_tracking(code_events, data_events)
@@ -250,13 +268,15 @@ def audit_tracking(code_events: list[str], csv_path: str) -> dict:
 
 @mcp.tool()
 def get_report_strings() -> dict:
-    """리포트에 들어가는 번역 가능한 문장 전체(영어 원본)를 반환한다.
+    """Every sentence the report can contain, in English, for translation.
 
-    내장 언어(en/ko/ja)가 아닌 언어로 리포트를 만들 때:
-    1. 이 툴을 불러 영어 원본을 받는다
-    2. 값들을 사용자의 언어로 번역한다 — {n}, {rate_did} 같은
-       중괄호 자리표시자는 반드시 그대로 남길 것 (숫자가 들어갈 자리)
-    3. generate_report에 custom_strings로 넘기고 lang="custom"으로 호출한다"""
+    For a language other than en/ko/ja:
+    1. call this,
+    2. translate the values — leave {n}, {rate_did} and every other brace
+       placeholder exactly as they are, that is where the numbers go,
+    3. pass the result to generate_report as custom_strings with lang="custom".
+    The code checks the placeholders survived, so the statistics stay exact.
+    """
     from i18n import STRINGS
 
     return STRINGS["en"]
@@ -274,19 +294,23 @@ def generate_report(
     lang: str = "en",
     custom_strings: dict[str, str] | None = None,
 ) -> str:
-    """YC 손그림 스타일의 HTML 도트 플롯 리포트를 생성한다.
-    비개발자도 3초 안에 읽을 수 있는 형태 — 투자자/팀 공유용.
-    특별 이벤트 마크:
-    - mark_events를 안 주면(기본) 아하 분석 상위 이벤트를 자동으로 골라 표시한다
-      (전/후 행동 변화 30%p 이상인 것만, 최대 2개 — 이벤트가 아무리 많아도 리포트는 조용하게)
-    - 직접 고르려면 mark_events={"create_playlist": "P"}, 설명은 mark_labels
-    - 마크를 아예 끄려면 mark_events={}
+    """Write the HTML dot plot report — readable in three seconds, made to share
+    with a team or an investor.
 
-    언어: 사용자의 대화 언어에 맞춰라.
-    - 내장 언어면 lang="en"|"ko"|"ja"
-    - 그 외 언어(프랑스어, 스페인어, 힌디어...)는 get_report_strings()를 받아
-      번역한 뒤 custom_strings로 넘기고 lang="custom"으로 호출.
-      {중괄호} 자리표시자는 절대 번역하지 말 것."""
+    analyze calls this for you. Use it directly when you need to control the
+    marks, the window, or a language that isn't built in.
+
+    Marks on other actions:
+    - default: the top aha events are picked automatically (behaviour change
+      of 30 points or more, at most two, so the report stays quiet no matter
+      how many event types exist)
+    - your own: mark_events={"create_playlist": "P"}, described by mark_labels
+    - none at all: mark_events={}
+
+    Language: match the conversation. lang="en"|"ko"|"ja" are built in; for any
+    other language translate get_report_strings() and pass it as custom_strings
+    with lang="custom". Never translate the {brace} placeholders.
+    """
     import report as report_mod
 
     if custom_strings:
@@ -295,7 +319,7 @@ def generate_report(
         bad = register_custom(custom_strings)
         lang = "custom"
         if bad:
-            return f"번역 오류 — 다음 키를 고쳐서 다시 호출하세요: {bad}"
+            return f"Translation problem — fix these keys and call again: {bad}"
 
     events, users, today = _prepare(csv_path, value_event)
     start = min(e["date"] for e in events)
@@ -370,51 +394,59 @@ def generate_report(
     )
     with open(output_path, "w") as f:
         f.write(html)
-    return f"리포트 생성 완료: {output_path} (유저 {len(subset)}명, {weeks}주)"
+    return f"Report written to {output_path} ({len(subset)} users, {weeks} weeks)"
 
 
 @mcp.tool()
 def onboarding_funnel(csv_path: str, value_event: str) -> dict:
-    """온보딩 퍼널: 가입 → 첫 가치 경험 → 재방문 → 최근 활동, 각 계단의 인원.
-    '어디서 새는지'를 답한다. median_days_to_value가 크면 온보딩 마찰 의심."""
+    """Onboarding funnel: signup -> first value -> came back -> still active.
+
+    Answers where new users leak. A large median_days_to_value means friction
+    between signing up and getting anything out of the product.
+    """
     _, users, today = _prepare(csv_path, value_event)
     return analysis.onboarding_funnel(users, today)
 
 
 @mcp.tool()
 def retention_curve(csv_path: str, value_event: str, max_weeks: int = 6) -> list:
-    """주차별 리텐션: 가입 후 N주차에 가치 이벤트가 있는 유저 비율.
-    N주차를 관측 가능한 유저만 분모에 넣고, 표본 5명 미만 주차는 자른다.
-    커브가 평평해지는 지점이 '안정 리텐션'이다."""
+    """Weekly retention: share of users with a value event in week N.
+
+    Only users old enough to have reached week N count toward it, and weeks with
+    fewer than five of them are dropped rather than reported as noise. Where the
+    curve flattens is the retention that holds.
+    """
     _, users, today = _prepare(csv_path, value_event)
     return analysis.retention_curve(users, today, max_weeks)
 
 
 @mcp.tool()
 def load_from_db(query: str, output_csv: str = "events.csv", db_url: str | None = None) -> dict:
-    """사용자의 DB에서 직접 이벤트를 뽑아 CSV로 저장한다 (CSV 수동 추출 단계 제거).
+    """Pull events out of the project's database into a CSV.
 
-    사용법 (에이전트 지침):
-    1. 접속 주소는 환경변수 DOTPLOT_DB_URL에서 읽는 게 기본.
-       사용자에게 안내: export DOTPLOT_DB_URL="postgresql://readonly:...@host:5432/db"
-       (Supabase는 대시보드 > Settings > Database > Connection string)
-       비밀번호를 채팅에 붙여넣게 하지 말 것 — 환경변수로 받아라.
-    2. 먼저 스키마를 파악하고 (information_schema 조회), 이벤트가 될 테이블을 찾아
-       SELECT user_id, date, event 형태로 쿼리를 만들어라. 예:
+    How to use it:
+    1. The connection string comes from DOTPLOT_DB_URL by default. Tell the user
+       to export it — never ask them to paste a password into the chat:
+       export DOTPLOT_DB_URL="postgresql://readonly:...@host:5432/db"
+       (Supabase: Dashboard > Settings > Database > Connection string)
+    2. Read the schema first (information_schema), find the tables that record
+       what users did, and shape them into user_id, date, event. Most products
+       have no events table — ordinary business tables are the event log:
        SELECT user_id::text, created_at::date AS date, 'purchase' AS event FROM orders
-       여러 행동은 UNION ALL로 합쳐라.
-    3. 안전: SELECT만 실행된다 (그 외는 코드가 거부). 읽기 전용 계정을 권장하라.
+       Combine several actions with UNION ALL.
+    3. Only SELECT runs; anything else is refused. Recommend a read-only role.
 
-    지원: postgresql:// (Supabase/RDS/Neon 등), sqlite:///경로 (로컬 테스트용)"""
+    Supports postgresql:// (Supabase, RDS, Neon) and sqlite:///path for testing.
+    """
     import os
 
     url = db_url or os.environ.get("DOTPLOT_DB_URL")
     if not url:
-        return {"error": "DB 주소가 없습니다. 환경변수 DOTPLOT_DB_URL을 설정하라고 안내하세요."}
+        return {"error": "No database URL. Ask the user to set DOTPLOT_DB_URL."}
 
     q = query.strip().rstrip(";")
     if not q.lower().startswith(("select", "with")) or ";" in q:
-        return {"error": "SELECT 쿼리만 실행할 수 있습니다."}
+        return {"error": "Only a single SELECT statement can be run."}
 
     if url.startswith("sqlite:///"):
         import sqlite3
@@ -430,18 +462,18 @@ def load_from_db(query: str, output_csv: str = "events.csv", db_url: str | None 
         try:
             import psycopg
         except ImportError:
-            return {"error": "psycopg가 필요합니다: uv pip install 'psycopg[binary]'"}
+            return {"error": "psycopg is required: uv pip install 'psycopg[binary]'"}
         with psycopg.connect(url, options="-c default_transaction_read_only=on") as conn:
             with conn.cursor() as cur:
                 cur.execute(q)
                 cols = [d.name for d in cur.description]
                 rows = cur.fetchall()
     else:
-        return {"error": "지원하는 주소: postgresql://... 또는 sqlite:///..."}
+        return {"error": "Supported URLs: postgresql://... or sqlite:///..."}
 
     required = {"user_id", "date", "event"}
     if not required.issubset(set(cols)):
-        return {"error": f"쿼리 결과에 {sorted(required)} 컬럼이 필요합니다. 현재: {cols}"}
+        return {"error": f"The query must return {sorted(required)}. It returned: {cols}"}
 
     import csv as _csv
 
@@ -457,43 +489,52 @@ def load_from_db(query: str, output_csv: str = "events.csv", db_url: str | None 
                 str(r[idx["date"]])[:10],
                 r[idx["event"]],
             ])
-    return {"saved": output_csv, "rows": len(rows), "next": "describe_events로 확인 후 분석 시작"}
+    return {"saved": output_csv, "rows": len(rows), "next": "Call analyze with this CSV."}
 
 
 @mcp.tool()
 def history_compare(csv_path: str, value_event: str) -> dict:
-    """현재 지표를 지난 분석 스냅샷과 비교한다 ("지난번 대비" 숫자).
-    스냅샷은 generate_report 때마다 ./.dotplot/history.json에 자동으로 쌓인다.
-    처음 분석이라 비교 대상이 없으면 그렇게 알려줄 것."""
+    """Compare today's numbers with the last analysis of the same data.
+
+    Snapshots are saved to ./.dotplot/history.json every time a report is made.
+    Only snapshots of the same dataset are compared, so the first run of a new
+    project has nothing to compare against — say so rather than implying zero
+    change.
+    """
     import history as hist_mod
 
     _, users, today = _prepare(csv_path, value_event)
     snap = hist_mod.make_snapshot(users, value_event, today)
     prev = hist_mod.previous_snapshot(snap)
     if not prev:
-        return {"current": snap, "note": "첫 스냅샷 — 비교할 과거가 아직 없습니다. 다음 분석부터 변화가 보입니다."}
+        return {"current": snap, "note": "First snapshot of this dataset — "
+                "nothing to compare yet. Changes show from the next analysis on."}
     return {"previous_date": prev["data_end"], "current": snap, "changes": hist_mod.diff(prev, snap)}
 
 
 @mcp.tool()
 def find_similar_cases(csv_path: str, value_event: str, industry: str | None = None) -> dict:
-    """내 진단 결과와 비슷한 상황을 겪은 실제 회사들의 개선 사례를 찾는다.
+    """Find companies that hit the same problem and what they changed.
 
-    공개 자료(YC 강연, First Round, 창업자 인터뷰)에서 큐레이션한 사례 도서관 v0.
-    반환된 사례를 사용자에게 전할 때:
-    - 'matched_on'(왜 이 사례가 매칭됐는지)을 함께 설명하라
-    - 출처를 명시하라 — 2차 인용이므로 정확한 수치는 원문 확인을 권하라
-    - 사례의 처방을 사용자의 코드에 적용해볼지 물어라 (예: 온보딩에 아하 행동 삽입)
-    industry: b2c|b2b|commerce|content|social|tool|game|other (같은 업종 가산점)"""
+    A small library curated from public material — YC talks, First Round, founder
+    interviews. When you pass a case on:
+    - explain matched_on, so the user knows why it came up
+    - cite the source, and say the figures are second-hand
+    - offer to apply the fix to their code (e.g. move the aha action into
+      onboarding)
+    industry: b2c|b2b|commerce|content|social|tool|game|other — a match in the
+    same industry ranks higher.
+    """
     import cases as cases_mod
 
     events, users, today = _prepare(csv_path, value_event)
     tags = cases_mod.diagnose_tags(users, events, value_event, today)
     matched = cases_mod.match_cases(tags, industry)
     return {
-        "내 진단 태그": sorted(tags),
-        "비슷한 사례": matched,
-        "참고": "공개 자료 큐레이션 — 맥락이 다를 수 있으니 실험으로 검증할 것",
+        "your_symptoms": sorted(tags),
+        "similar_cases": matched,
+        "caution": "Curated from public material. Their context differs from "
+                   "yours — treat it as a hypothesis to test, not a recipe.",
     }
 
 
@@ -538,13 +579,17 @@ def _hosting_dir():
 
 @mcp.tool()
 def publish_report(html_path: str) -> dict:
-    """생성된 HTML 리포트를 호스팅하고 공유 링크를 발급한다.
+    """Host the report and return a shareable link.
 
-    구현: hosting/ 폴더(Vercel 프로젝트)에 무작위 주소로 리포트를 넣고
-    `vercel deploy --prod`로 배포한다. 링크를 아는 사람만 접근 가능하고
-    (무작위 주소 + noindex 헤더), 검색엔진에도 안 잡힌다.
-    필요 조건: vercel CLI 로그인. 삭제: hosting/r/에서 파일 지우고 재배포.
-    주의: 웹에 올라가는 것이므로, 올리기 전 사용자에게 확인할 것."""
+    ASK THE USER FIRST. This puts their product's numbers on the public web.
+    Only run it when they have said they want a link.
+
+    The report goes to a random path in a Vercel project and is deployed with
+    `vercel deploy --prod`. The random path plus a noindex header means only
+    someone with the link can reach it and search engines won't list it — but it
+    is still the open internet. Requires the vercel CLI to be logged in. To take
+    one down, delete the file under r/ and deploy again.
+    """
     import re
     import secrets
     import shutil
@@ -553,7 +598,7 @@ def publish_report(html_path: str) -> dict:
 
     path = Path(html_path).resolve()
     if not path.exists():
-        return {"error": f"파일이 없음: {path}"}
+        return {"error": f"No such file: {path}"}
 
     hosting = _hosting_dir()
     (hosting / "r").mkdir(parents=True, exist_ok=True)
@@ -567,7 +612,7 @@ def publish_report(html_path: str) -> dict:
         capture_output=True, text=True, cwd=hosting,
     )
     if r.returncode != 0:
-        return {"error": f"배포 실패: {r.stderr.strip()[-500:]}"}
+        return {"error": f"Deploy failed: {r.stderr.strip()[-500:]}"}
 
     # 고정 도메인 = stderr의 "Aliased https://프로젝트명.vercel.app" 줄
     import json as _json
@@ -580,11 +625,12 @@ def publish_report(html_path: str) -> dict:
         try:
             base = _json.loads(r.stdout)["deployment"]["url"]
         except (ValueError, KeyError):
-            return {"error": f"배포는 됐지만 URL 해석 실패: {r.stdout[-300:]}"}
+            return {"error": f"Deployed, but the URL could not be read: {r.stdout[-300:]}"}
     return {
-        "공유 링크 (이걸 보내면 됨)": f"{base}/{dest}",
-        "삭제 방법": f"{hosting}/{dest} 파일 삭제 후 재배포",
-        "참고": "무작위 주소 + noindex — 링크를 아는 사람만 접근 가능",
+        "share_url": f"{base}/{dest}",
+        "how_to_remove": f"Delete {hosting}/{dest} and deploy again",
+        "note": "Random path + noindex — reachable only with the link, "
+                "but it is on the public web.",
     }
 
 
@@ -592,41 +638,50 @@ def publish_report(html_path: str) -> dict:
 def submit_benchmark(
     csv_path: str, value_event: str, industry: str, stage: str, consent: bool = False
 ) -> dict:
-    """익명 벤치마크에 집계값을 제출한다 (옵트인).
+    """Submit five aggregate numbers to the anonymous benchmark. Opt-in.
 
-    반드시 지킬 것: consent=True는 사용자가 명시적으로 동의했을 때만.
-    동의를 구할 때 '서버로 가는 것'을 그대로 보여줘라 — 집계값 5개
-    (유저 수, 이탈률, 주말비율, 단골률, 아하 lift)가 전부이고,
-    유저 ID·이벤트 로그·서비스 이름은 절대 전송되지 않는다.
+    Set consent=True only after the user has explicitly agreed. When you ask,
+    show them exactly what leaves the machine — user count, churn rate, weekend
+    rate, regular rate, aha lift, and nothing else. No user IDs, no event log,
+    no product name.
+
     industry: b2c|b2b|commerce|content|social|tool|game|other
-    stage: pre_launch|under_100_users|under_1k_users|over_1k_users"""
+    stage: pre_launch|under_100_users|under_1k_users|over_1k_users
+    """
     import benchmark as bench
 
     if not consent:
-        return {"error": "사용자 동의가 필요합니다. 전송 내용을 보여주고 허락받은 뒤 consent=True로 다시 호출하세요."}
+        return {"error": "Consent required. Show the user what would be sent, "
+                         "and call again with consent=True only if they agree."}
     if industry not in bench.INDUSTRIES or stage not in bench.STAGES:
-        return {"error": f"industry는 {bench.INDUSTRIES}, stage는 {bench.STAGES} 중 하나"}
+        return {"error": f"industry must be one of {bench.INDUSTRIES}, "
+                         f"stage one of {bench.STAGES}"}
 
     events, users, today = _prepare(csv_path, value_event)
     agg = bench.compute_aggregates(events, users, value_event, today)
     bench.submit(agg, industry, stage)
-    return {"제출 완료": agg, "참고": "이 집계값 외에는 아무것도 전송되지 않았습니다."}
+    return {"submitted": agg, "note": "Nothing beyond these numbers was sent."}
 
 
 @mcp.tool()
 def compare_benchmark(csv_path: str, value_event: str, industry: str, stage: str) -> dict:
-    """내 지표를 같은 업종·단계 팀들의 백분위와 비교한다.
-    표본이 10팀 미만이면 비교가 무의미하므로 그렇게 안내할 것."""
+    """Compare your numbers with percentiles from teams at the same industry
+    and stage.
+
+    Below ten teams the percentiles mean nothing — say so plainly instead of
+    reporting them.
+    """
     import benchmark as bench
 
     events, users, today = _prepare(csv_path, value_event)
     mine = bench.compute_aggregates(events, users, value_event, today)
     peers = bench.fetch(industry, stage)
 
-    result = {"내 지표": mine, "같은 그룹 통계": peers}
+    result = {"yours": mine, "peers": peers}
     sample = (peers or {}).get("sample_size") or 0
     if sample < 10:
-        result["주의"] = f"표본이 {sample}팀뿐 — 아직 비교 기준으로 삼지 마세요."
+        result["caution"] = (f"Only {sample} teams in this group — not enough to "
+                             "compare against yet. Don't present it as a benchmark.")
     return result
 
 

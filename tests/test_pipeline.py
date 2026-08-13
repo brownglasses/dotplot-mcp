@@ -213,3 +213,31 @@ def test_report_never_contradicts_itself_about_the_aha_moment(tmp_path):
     assert not (shows_card and says_nothing_found)
     if r["aha_moment"]:
         assert not says_nothing_found
+
+
+# ── 언어 경계 ────────────────────────────────────────────────────────────
+
+def test_tool_descriptions_and_returns_are_english(tmp_path):
+    """에이전트가 읽는 글과 반환값 키는 영어여야 한다 — 사용자는 전 세계에 있다.
+    (사람에게 보일 문장은 i18n으로 가고, 코드 주석은 한국어 그대로 둔다.)"""
+    import re
+    import server
+    korean = re.compile(r"[가-힣]")
+
+    tools = [getattr(server, n) for n in dir(server) if not n.startswith("_")]
+    for fn in tools:
+        doc = getattr(fn, "__doc__", None)
+        if callable(fn) and doc and getattr(fn, "__module__", "") == "server":
+            assert not korean.search(doc), f"{fn.__name__} 설명문에 한글이 있다"
+
+    path = write_csv(tmp_path / "e.csv", events_for(8, 20), ["user_id", "date", "event"])
+    out = server.analyze(path, output_path=str(tmp_path / "r.html"))
+    assert not korean.search(repr(list(out)))
+
+
+def test_reports_still_speak_the_users_language(tmp_path):
+    """영어로 정리했다고 리포트까지 영어가 되면 안 된다 — 그건 i18n의 몫이다."""
+    import server
+    path = write_csv(tmp_path / "e.csv", events_for(8, 20), ["user_id", "date", "event"])
+    labels = server.classify_users(path, "purchase", lang="ko")
+    assert any("가" <= ch <= "힣" for v in labels.values() for ch in v["label"])

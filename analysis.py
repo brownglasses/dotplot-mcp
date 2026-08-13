@@ -98,17 +98,17 @@ def check_value_event(events: list[dict], value_event: str) -> None:
     """
     if is_vanity(value_event):
         raise ValueEventError(
-            f"'{value_event}'는 허영 지표라 핵심 가치 이벤트로 쓸 수 없습니다. "
-            "앱을 열었다는 건 가치를 얻었다는 뜻이 아닙니다. "
-            "'그 행동을 했으면 이 서비스를 쓴 보람이 있다'고 할 만한 이벤트를 고르세요 "
-            "(예: play_song, purchase, send_message)."
+            f"'{value_event}' is a vanity metric and can't be the value event. "
+            "Opening an app is not the same as getting something out of it. "
+            "Pick the action that means the user got what they came for "
+            "(play_song, purchase, send_message)."
         )
     present = {e["event"] for e in events}
     if value_event not in present:
         options = sorted(e for e in present if not is_vanity(e))
         raise ValueEventError(
-            f"'{value_event}'는 데이터에 없는 이벤트입니다. "
-            f"고를 수 있는 이벤트: {options or sorted(present)}"
+            f"'{value_event}' does not appear in this data. "
+            f"Available events: {options or sorted(present)}"
         )
 
 
