@@ -48,21 +48,34 @@ uv run sample_data.py   # generates events.csv (40 fake users)
 uv run harness.py       # watch the whole pipeline run
 ```
 
-Then ask Claude:
+Then say one thing:
 
-> "Analyze events.csv and find my aha moment"
+> "Analyze my product"
 
-Exporting from your own DB is one query:
+That's the whole interface. Claude finds your data, picks the action that means
+"this user got value", and hands back the report above. If your database has no
+events table — most early products don't — it builds the events out of the
+tables you already have:
 
 ```sql
-SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
+SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders
+UNION ALL
+SELECT user_id, added_at::date, 'add_to_wishlist' FROM wishlist_items
 ```
+
+Your `orders` table *is* an event log. It just isn't named like one. No SDK, no
+tracking code, no signup.
 
 ## Tools
 
+**`analyze` is the whole product.** Everything below it is a part that `analyze`
+already uses — reach for one only when you want a single number on its own
+("just show me retention").
+
 | Tool | What it does |
 |---|---|
-| `describe_events` | Understand the data shape (always call first) |
+| **`analyze`** | **Data in, finished report out. Start here.** |
+| `describe_events` | Understand the data shape |
 | `dot_plot` | Text dot plot (◎ signup day, ● active day, custom marks) |
 | `classify_users` | Automatic behavioral pattern classification |
 | `find_aha_moments` | Scan all events for "regular-converting" actions (before/after behavior change) |

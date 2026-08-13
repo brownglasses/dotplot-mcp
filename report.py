@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from html import escape
 
-from analysis import UserRow, classify_users
+from analysis import UserRow, classify_users, top_aha
 from i18n import t
 
 WEEKDAY_EN = ["M", "T", "W", "TH", "F", "SA", "S"]
@@ -46,8 +46,8 @@ def build_insights(
     labels = event_labels or {}
     out = []
 
-    if aha_results and aha_results[0]["lift"] >= 0.3:
-        top = aha_results[0]
+    top = top_aha(aha_results)
+    if top:
         out.append(t(lang, "insight.aha",
             name=esc(labels.get(top["event"], top["event"])),
             did=top["did_count"],
@@ -255,11 +255,13 @@ def render_html_report(
             f"{dots}</svg></div>"
         )
 
+    # 결론 카드는 리포트 맨 위에 온다 — 숫자를 읽기 전에 "그래서 뭘 하면 될까"부터.
+    # 3초 안에 읽혀야 한다는 게 이 리포트의 유일한 요구사항이라서.
     insight_card = ""
     if insights:
         items = "".join(f"<li>{txt}</li>" for txt in insights)
         insight_card = (
-            f'<div class="card ins"><h2>{t(lang, "report.insights_title")}</h2>'
+            f'<div class="card ins lead"><h2>{t(lang, "report.insights_title")}</h2>'
             f"<ul>{items}</ul>"
             f'<p class="note">{t(lang, "report.insights_note")}</p></div>'
         )
@@ -298,6 +300,7 @@ td.we,th.we{{background:#fae8dd}}
 .card ul{{margin:0;padding-left:22px;font-size:20px;line-height:1.9}}
 .card.ins{{background:#fffbea;border-color:#e0a52a}}
 .card.ins li{{margin-bottom:10px}}
+.card.lead{{margin:0 0 26px}}
 .card .note{{font-size:16px;color:#999;margin:12px 0 0}}
 .chip{{display:flex;align-items:center;gap:8px;border:none;background:none;font:inherit;
   font-size:19px;cursor:pointer;padding:4px 8px;border-radius:8px}}
@@ -330,6 +333,7 @@ td.we,th.we{{background:#fae8dd}}
 </style></head><body><div class="wrap">
 <h1>{t(lang, "report.title")}</h1>
 <p class="sub">{t(lang, "report.subtitle", start=start.strftime('%Y.%m.%d'))}</p>
+{insight_card}
 <div class="scroll"><table>{head}{"".join(body)}</table></div>
 <div class="legend">
   <span><span class="dot"></span> {t(lang, "report.legend.active")}</span>
@@ -339,10 +343,9 @@ td.we,th.we{{background:#fae8dd}}
 </div>
 {aha_html}
 <div class="card"><h2>{t(lang, "report.glance")}</h2><ul>{summary}</ul></div>
-{history_card}
 {funnel_card}
 {retention_card}
-{insight_card}
+{history_card}
 <script>
 const MARKS = {marks_js};
 function repaint() {{

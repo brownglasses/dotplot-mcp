@@ -28,6 +28,47 @@ def is_vanity(event: str) -> bool:
     return event.strip().lower() in VANITY_EVENTS
 
 
+# 핵심 가치 이벤트가 되려면 최소한 이 정도는 돼야 한다는 선.
+# 넘겼다고 좋은 선택인 건 아니고, 못 넘기면 확실히 나쁜 선택이라는 뜻이다.
+MIN_COVERAGE = 0.2      # 유저 5명 중 1명도 안 하는 행동은 제품의 핵심일 수 없다
+MIN_DAYS_PER_USER = 1.2  # 한 번 하고 마는 행동은 '돌아왔는가'를 말해주지 않는다
+
+
+def rank_value_events(events: list[dict]) -> list[dict]:
+    """value_event 후보를 순위 매긴다 — 코드가 할 수 있는 만큼만.
+
+    코드가 판단할 수 있는 것: 얼마나 많은 유저가 하는가(coverage),
+    반복되는 행동인가(days_per_user), 허영 지표인가.
+
+    코드가 판단할 수 없는 것: 그 행동이 '가치'인가. `purchase`와 `view_item`은
+    숫자로는 똑같이 생겼다. 그건 제품을 아는 쪽 — 코드를 읽은 에이전트가 판단해야
+    한다. 그래서 여기서는 고르지 않고 근거만 붙여 줄을 세운다.
+    """
+    total_users = len({e["user_id"] for e in events})
+    if not total_users:
+        return []
+
+    days: dict[str, dict[str, set]] = defaultdict(lambda: defaultdict(set))
+    for e in events:
+        days[e["event"]][e["user_id"]].add(e["date"])
+
+    ranked = []
+    for ev, doers in days.items():
+        if is_vanity(ev):
+            continue
+        coverage = len(doers) / total_users
+        per_user = sum(len(d) for d in doers.values()) / len(doers)
+        ranked.append({
+            "event": ev,
+            "users": len(doers),
+            "coverage": round(coverage, 3),
+            "days_per_user": round(per_user, 2),
+            "usable": coverage >= MIN_COVERAGE and per_user >= MIN_DAYS_PER_USER,
+        })
+    ranked.sort(key=lambda r: (not r["usable"], -r["coverage"], -r["days_per_user"]))
+    return ranked
+
+
 @dataclass
 class UserRow:
     user_id: str
@@ -209,6 +250,24 @@ def find_aha_moments(
     return sorted(
         results,
         key=lambda r: (r["behavior_change"] is None, -(r["behavior_change"] or -1), -r["lift"]),
+    )
+
+
+# "아하 모먼트를 찾았다"고 말할 기준 — 전/후 활동률이 이만큼은 올라야 한다.
+# lift(집단 비교)가 아니라 behavior_change(같은 유저의 전/후)를 쓰는 이유는
+# find_aha_moments 주석에 있다: 자주 오는 유저는 아무 행동이나 다 해서 lift를 부풀린다.
+AHA_MIN_BEHAVIOR_CHANGE = 0.3
+
+
+def top_aha(results: list[dict]) -> dict | None:
+    """리포트가 아하 모먼트로 내세울 후보 하나. 없으면 None.
+
+    이 판정은 여기서만 한다. 리포트 본문과 결론 문장이 서로 다른 기준을 쓰면
+    "아하 모먼트 발견!" 카드 옆에 "뚜렷한 패턴이 없다"는 문장이 같이 나온다.
+    """
+    return next(
+        (c for c in results if (c.get("behavior_change") or 0) >= AHA_MIN_BEHAVIOR_CHANGE),
+        None,
     )
 
 

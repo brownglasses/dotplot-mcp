@@ -14,6 +14,7 @@ import pytest
 import analysis
 import history
 import report
+from i18n import t as _t
 
 
 def write_csv(path, rows, header):
@@ -153,3 +154,62 @@ def test_report_escapes_user_data(tmp_path):
     html = report.render_html_report(users, min(e["date"] for e in events), 28, today)
     assert "onerror=alert" not in html
     assert "&lt;" in html  # 이스케이프된 흔적은 있어야 한다 (그냥 사라진 게 아니라)
+
+
+# ── analyze: 정문 ────────────────────────────────────────────────────────
+
+def test_analyze_without_data_routes_instead_of_failing(tmp_path):
+    """데이터가 없다고 죽으면 안 된다. 다음에 뭘 할지 알려줘야 한다."""
+    import server
+    r = server.analyze()
+    assert r["status"] == "need_data"
+    assert any("load_from_db" in step for step in r["what_to_do"])
+
+
+def test_analyze_picks_a_value_event_and_reports_alternatives(tmp_path):
+    import server
+    rows = (
+        events_for(10, 25, event="purchase")
+        + events_for(10, 25, event="open_app")       # 허영 — 골라선 안 됨
+        + events_for(2, 2, event="refund")           # 너무 드묾 — 골라선 안 됨
+    )
+    path = write_csv(tmp_path / "e.csv", rows, ["user_id", "date", "event"])
+    r = server.analyze(path, output_path=str(tmp_path / "r.html"))
+    assert r["status"] == "ok"
+    assert r["value_event"]["chosen"] == "purchase"
+    assert "open_app" not in r["value_event"]["others_available"]
+
+
+def test_analyze_honours_an_explicit_value_event(tmp_path):
+    """에이전트는 코드를 읽었으므로 의미를 안다 — 그 판단이 코드보다 우선해야 한다."""
+    import server
+    rows = events_for(10, 25, event="view_item") + events_for(10, 20, event="purchase")
+    path = write_csv(tmp_path / "e.csv", rows, ["user_id", "date", "event"])
+    r = server.analyze(path, value_event="purchase", output_path=str(tmp_path / "r.html"))
+    assert r["value_event"]["chosen"] == "purchase"
+
+
+def test_analyze_says_so_when_nothing_is_trackable(tmp_path):
+    import server
+    path = write_csv(tmp_path / "e.csv", events_for(10, 20, event="page_view"),
+                     ["user_id", "date", "event"])
+    r = server.analyze(path, output_path=str(tmp_path / "r.html"))
+    assert r["status"] == "no_value_event"
+
+
+def test_report_never_contradicts_itself_about_the_aha_moment(tmp_path):
+    """아하 카드를 띄우면서 '뚜렷한 패턴 없음'이라고 쓰면 안 된다 —
+    두 판정이 서로 다른 기준을 쓰면 그런 리포트가 나온다."""
+    import server
+    rows = events_for(12, 30, event="purchase") + [
+        [f"u{i:03d}", "2026-07-08", "invite_friend"] for i in range(8)
+    ]
+    path = write_csv(tmp_path / "e.csv", rows, ["user_id", "date", "event"])
+    out = tmp_path / "r.html"
+    r = server.analyze(path, output_path=str(out))
+    html = out.read_text()
+    shows_card = "aha.title" not in html and "💡" in html
+    says_nothing_found = _t("en", "insight.none") in html
+    assert not (shows_card and says_nothing_found)
+    if r["aha_moment"]:
+        assert not says_nothing_found

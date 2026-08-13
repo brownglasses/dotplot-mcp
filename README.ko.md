@@ -47,21 +47,32 @@ uv run sample_data.py   # events.csv 생성 (가짜 유저 40명)
 uv run harness.py       # 전체 파이프라인을 눈으로 확인
 ```
 
-그다음 Claude에게:
+그다음 한 마디만 하면 됩니다:
 
-> "events.csv 분석해서 아하 모먼트 찾아줘"
+> "우리 서비스 분석해줘"
 
-내 DB에서 뽑으려면 이 정도면 됩니다:
+이게 전부입니다. Claude가 데이터를 찾고, "이 행동을 했으면 가치를 얻은 것"에
+해당하는 이벤트를 고르고, 위 리포트를 만들어 줍니다. DB에 events 테이블이
+없어도 됩니다 — 초기 제품은 대부분 없고, 이미 있는 테이블로 만들어 씁니다:
 
 ```sql
-SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
+SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders
+UNION ALL
+SELECT user_id, added_at::date, 'add_to_wishlist' FROM wishlist_items
 ```
+
+`orders` 테이블이 곧 이벤트 로그입니다. 이름만 그렇지 않을 뿐이죠.
+SDK도, 추적 코드도, 가입도 필요 없습니다.
 
 ## 툴 목록
 
+**`analyze` 하나가 제품 전체입니다.** 아래 툴들은 `analyze`가 이미 쓰고 있는
+부품이에요 — "리텐션만 보여줘" 같은 구체적 요청일 때만 직접 부르세요.
+
 | 툴 | 하는 일 |
 |---|---|
-| `describe_events` | 데이터 구조 파악 (항상 먼저 호출) |
+| **`analyze`** | **데이터 넣으면 리포트까지. 여기서 시작.** |
+| `describe_events` | 데이터 구조 파악 |
 | `dot_plot` | 텍스트 도트 플롯 (◎ 가입일, ● 활동, 커스텀 마크) |
 | `classify_users` | 행동 패턴별 자동 분류 |
 | `find_aha_moments` | 전 이벤트 대상 "단골 전환 행동" 자동 탐색 (전/후 행동 변화 기준) |

@@ -34,6 +34,133 @@ def _prepare(csv_path: str, value_event: str):
 
 
 @mcp.tool()
+def analyze(
+    csv_path: str | None = None,
+    value_event: str | None = None,
+    lang: str = "en",
+    output_path: str = "dotplot_report.html",
+) -> dict:
+    """START HERE. Event data in, finished report out, one call.
+
+    Use this whenever the user asks anything general — "analyze my product",
+    "how are my users doing", "find my aha moment". The other tools are parts;
+    this is the whole thing. Only reach for them when the user asks for one
+    specific number ("just show me retention").
+
+    It picks a value event, draws the dot plot, finds the aha moment, builds the
+    funnel and retention curve, and writes the HTML report — then tells you what
+    it found so you can say it out loud.
+
+    csv_path: a CSV with user_id, date, event (platform optional).
+      No CSV yet? Call with no arguments and follow the instructions you get
+      back — for a project with a database you will explore its schema and turn
+      ordinary business tables (orders, sessions, posts) into events with
+      load_from_db. Most early products have no events table; that is expected.
+
+    value_event: the action that means "this user got real value".
+      Leave it out and the code picks the candidate most users repeat. Pass it
+      yourself when you have read the codebase and know better — you can tell
+      `purchase` from `view_item` and the code cannot. The result always names
+      what was chosen and what else was available, so you can call again with a
+      different one if the choice looks wrong.
+
+    lang: the user's language. en/ko/ja are built in; for any other language
+      call get_report_strings, translate, and use generate_report directly.
+    """
+    if not csv_path:
+        return {
+            "status": "need_data",
+            "what_to_do": [
+                "1. Look for a database: is DOTPLOT_DB_URL set? Is there a connection "
+                "string in .env, or a Postgres/Supabase MCP already connected?",
+                "2. Read the schema. You are looking for tables that record things "
+                "users did — orders, sessions, posts, messages, subscriptions. "
+                "An 'events' table is nice but rare at this stage.",
+                "3. Turn those tables into events with load_from_db, one SELECT per "
+                "table joined by UNION ALL: "
+                "SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders "
+                "UNION ALL SELECT user_id, added_at::date, 'add_to_wishlist' FROM wishlist_items",
+                "4. Call analyze again with the CSV it wrote.",
+                "If there is no database and nothing is tracked, say so plainly — this "
+                "tool cannot help yet. Offer to add event logging instead: find the "
+                "handlers for the product's core actions and use audit_tracking.",
+            ],
+        }
+
+    events = analysis.load_events(csv_path)
+    ranked = analysis.rank_value_events(events)
+
+    if value_event is None:
+        best = next((r for r in ranked if r["usable"]), None)
+        if best is None:
+            return {
+                "status": "no_value_event",
+                "candidates": ranked,
+                "what_to_do": (
+                    "Nothing in this data looks like a value event: every action is "
+                    "either a vanity metric, done by too few users, or never repeated. "
+                    "That is a tracking problem, not a product problem. Tell the user "
+                    "which core actions are not being recorded and offer to add logging "
+                    "(audit_tracking has the procedure)."
+                ),
+            }
+        value_event = best["event"]
+        chosen_because = (
+            f"{best['coverage']:.0%} of users did it, {best['days_per_user']} days each "
+            "on average — the most repeated action in the data that isn't a vanity metric"
+        )
+    else:
+        analysis.check_value_event(events, value_event)
+        chosen_because = "you passed it explicitly"
+
+    users = analysis.build_users(events, value_event)
+    today = max(e["date"] for e in events)
+    buckets = analysis.classify_users(users, today)
+    aha = analysis.find_aha_moments(events, users, value_event, today)
+    funnel = analysis.onboarding_funnel(users, today)
+    retention = analysis.retention_curve(users, today)
+
+    generate_report(csv_path, value_event, output_path=output_path, lang=lang)
+
+    import re
+
+    import report as report_mod
+
+    headline = [
+        re.sub(r"</?b>", "", line)
+        for line in report_mod.build_insights(len(users), buckets, aha, lang=lang)
+    ]
+    top = analysis.top_aha(aha)
+
+    return {
+        "status": "ok",
+        "report": output_path,
+        "value_event": {
+            "chosen": value_event,
+            "why": chosen_because,
+            "others_available": [r["event"] for r in ranked if r["event"] != value_event],
+        },
+        "headline": headline,
+        "aha_moment": {
+            "event": top["event"],
+            "regulars_who_did_it": top["did_regular_rate"],
+            "regulars_who_did_not": top["not_regular_rate"],
+            "activity_change_after": top["behavior_change"],
+        } if top else None,
+        "users": {"total": len(users), **{k: len(v) for k, v in buckets.items()}},
+        "funnel": funnel,
+        "retention": retention,
+        "next": [
+            f"Show the user the report at {output_path} and read the headline out loud.",
+            "The aha moment is a correlation, not a cause — suggest testing it in "
+            "onboarding rather than stating it as fact.",
+            "Offer publish_report only if they want a shareable link (it goes on the web).",
+            "If the value event looks wrong, call analyze again with value_event set.",
+        ],
+    }
+
+
+@mcp.tool()
 def describe_events(csv_path: str) -> dict:
     """이벤트 CSV의 구조를 파악한다: 기간, 유저 수, 이벤트 종류별 개수.
     분석 시작 전에 항상 먼저 불러서 어떤 이벤트가 있는지 확인할 것."""
@@ -182,7 +309,7 @@ def generate_report(
         mark_events, auto_labels = {}, {}
         used_letters: set[str] = set()
         for c in aha_results:
-            if c["behavior_change"] is None or c["behavior_change"] < 0.3:
+            if (c["behavior_change"] or 0) < analysis.AHA_MIN_BEHAVIOR_CHANGE:
                 continue
             letter = next(
                 (ch.upper() for ch in c["event"] if ch.isalpha() and ch.upper() not in used_letters),
@@ -211,7 +338,7 @@ def generate_report(
         history_card = {"date": prev["data_end"], "rows": hist_mod.diff(prev, snap)}
     # 아하 모먼트 카드: 1위 후보를 '한 날 = 0일' 정렬 그림으로
     aha_card = None
-    top = next((c for c in aha_results if (c["behavior_change"] or 0) >= 0.3), None)
+    top = analysis.top_aha(aha_results)
     if top and top["event"] in mark_events:
         ev = top["event"]
         doers = []
