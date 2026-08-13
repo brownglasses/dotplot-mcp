@@ -31,8 +31,22 @@ DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 
 
 ## 시작하기
 
-필요한 것: [uv](https://docs.astral.sh/uv/), 그리고 `user_id, date, event` 3칸짜리 CSV
-(`platform` 칸을 4번째로 넣으면 도트 플롯에 라벨로 같이 표시됩니다 — 선택).
+필요한 것: [uv](https://docs.astral.sh/uv/), 그리고 세 칸짜리 데이터 —
+누가, 언제, 뭘 했나 (`user_id, date, event`).
+
+**쓰던 DB 도구가 내보낸 파일을 그대로 넣으면 됩니다.** CSV·TSV·JSON·JSONL을
+바로 읽고, 컬럼 이름은 알아서 맞추고(`uid`, `customer_id`, `created_at`,
+`event_name` 다 됩니다), 타임스탬프는 날짜로 잘라냅니다:
+
+```bash
+psql -c "..." --csv > events.csv           # Postgres
+mysql --json -e "..." > events.json        # MySQL
+mongoexport --collection=orders ...        # MongoDB
+bq query --format=json "..." > events.json # BigQuery
+```
+
+"어떤 DB를 지원하나요"의 답이 이겁니다 — **이미 쿼리할 수 있는 DB 전부.**
+데이터는 DB → 파일 → 리포트로 가고, 중간에 AI를 거치지 않습니다.
 
 명령 한 줄 — 클론도 설정도 필요 없습니다:
 

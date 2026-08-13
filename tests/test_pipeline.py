@@ -241,3 +241,61 @@ def test_reports_still_speak_the_users_language(tmp_path):
     path = write_csv(tmp_path / "e.csv", events_for(8, 20), ["user_id", "date", "event"])
     labels = server.classify_users(path, "purchase", lang="ko")
     assert any("가" <= ch <= "힣" for v in labels.values() for ch in v["label"])
+
+
+# ── 어떤 도구가 뱉은 파일이든 읽는가 ─────────────────────────────────────
+
+def rows_as(fmt, tmp_path, user_key, date_key, event_key, date_fn):
+    import json
+    rows = [{user_key: f"u{i:03d}", date_key: date_fn(d), event_key: "purchase"}
+            for i in range(8) for d in range(20)]
+    p = tmp_path / f"e.{fmt}"
+    if fmt == "json":
+        p.write_text(json.dumps(rows))
+    elif fmt == "jsonl":
+        p.write_text("\n".join(json.dumps(r) for r in rows))
+    elif fmt == "bq":                      # {"rows": [...]}
+        p = tmp_path / "e.json"
+        p.write_text(json.dumps({"rows": rows}))
+    else:
+        sep = "\t" if fmt == "tsv" else ","
+        head = sep.join([user_key, date_key, event_key])
+        body = "\n".join(sep.join(str(r[k]) for k in (user_key, date_key, event_key)) for r in rows)
+        p.write_text(head + "\n" + body + "\n")
+    return str(p)
+
+
+@pytest.mark.parametrize("fmt,ukey,dkey,ekey,dfn", [
+    # psql --csv: 원본 컬럼명 + 타임스탬프
+    ("csv",   "user_id",     "created_at",  "event_name", lambda d: f"2026-07-{d+1:02d} 14:23:11"),
+    # mysql --json
+    ("json",  "uid",         "ts",          "action",     lambda d: f"2026-07-{d+1:02d}T09:00:00Z"),
+    # mongoexport
+    ("jsonl", "customer_id", "occurred_at", "type",        lambda d: f"2026-07-{d+1:02d}T09:00:00+09:00"),
+    # bq --format=json: epoch 밀리초
+    ("bq",    "user",        "timestamp",   "event",       lambda d: 1782950400000 + d * 86400000),
+    # 스프레드시트 내보내기
+    ("tsv",   "User",        "Day",         "Action",      lambda d: f"2026/07/{d+1:02d}"),
+])
+def test_reads_what_other_tools_export(tmp_path, fmt, ukey, dkey, ekey, dfn):
+    """DB를 넓게 지원하는 길은 드라이버를 늘리는 게 아니라, 이미 있는 도구가
+    뱉은 파일을 읽는 것이다. 그래야 데이터가 에이전트 문맥을 거치지 않는다."""
+    path = rows_as(fmt, tmp_path, ukey, dkey, ekey, dfn)
+    events = analysis.load_events(path)
+    assert len({e["user_id"] for e in events}) == 8
+    assert all(isinstance(e["date"], date) for e in events)
+
+
+@pytest.mark.parametrize("bad", ["07/01/2026", "next tuesday", ""])
+def test_ambiguous_dates_are_refused_not_guessed(bad):
+    """07/01/2026이 7월 1일인지 1월 7일인지 코드는 모른다.
+    찍으면 조용히 틀린 리포트가 된다."""
+    with pytest.raises(analysis.EventFileError):
+        analysis.parse_day(bad)
+
+
+def test_unmatched_columns_say_what_to_do(tmp_path):
+    path = write_csv(tmp_path / "e.csv", [["1", "2", "3"]], ["a", "b", "c"])
+    with pytest.raises(analysis.EventFileError) as e:
+        analysis.load_events(path)
+    assert "a" in str(e.value) and "AS date" in str(e.value)

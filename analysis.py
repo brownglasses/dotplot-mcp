@@ -7,9 +7,11 @@ LLM은 이 코드를 건드리지 못하고, 결과만 받아서 해석한다.
 from __future__ import annotations
 
 import csv
+import io
+import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 # '단골(regular)'의 유일한 정의 — 최근 2주 중 며칠 이상 핵심 가치 이벤트가 있어야 하는가.
 # classify_users와 find_aha_moments가 반드시 같은 기준을 쓴다 (리포트 안에서 숫자가 어긋나지 않게).
@@ -78,12 +80,130 @@ class UserRow:
     special_days: dict[date, set[str]] = field(default_factory=dict)  # 그날 한 특별 이벤트들
 
 
+# 컬럼 이름은 도구마다 다르다. 드라이버를 늘리는 대신 이름을 알아보는 쪽이
+# 훨씬 넓게 커버된다 — psql, mysql, mongoexport, bq, 스프레드시트 전부 여기 걸린다.
+COLUMN_ALIASES = {
+    "user_id": ("user_id", "userid", "user", "uid", "customer_id", "account_id",
+                "person_id", "distinct_id", "profile_id", "id"),
+    "date": ("date", "day", "created_at", "createdat", "occurred_at", "inserted_at",
+             "event_date", "timestamp", "time", "ts", "at"),
+    "event": ("event", "event_name", "eventname", "event_type", "action", "type", "name"),
+    "platform": ("platform", "device", "os", "client"),   # 선택
+}
+
+
+class EventFileError(ValueError):
+    """파일을 이벤트로 읽을 수 없을 때. 무엇이 문제고 무엇을 주면 되는지 같이 말한다."""
+
+
+def parse_day(value) -> date:
+    """DB가 주는 온갖 시각 표현에서 '날짜'만 뽑는다.
+
+    도트 플롯의 한 칸은 하루다. 시·분·초와 시간대는 필요 없다.
+    애매한 형식(07/01/2026 — 7월 1일인지 1월 7일인지)은 추측하지 않고 거절한다.
+    잘못 읽은 날짜는 조용히 틀린 리포트가 되기 때문이다.
+    """
+    if isinstance(value, date):
+        return value
+    if isinstance(value, (int, float)) or (isinstance(value, str) and value.strip().isdigit()):
+        n = float(value)
+        if n > 1e11:      # 밀리초 epoch
+            n /= 1000
+        return datetime.fromtimestamp(n, tz=timezone.utc).date()
+
+    s = str(value).strip()
+    if not s:
+        raise EventFileError("A row has an empty date.")
+    try:
+        return date.fromisoformat(s[:10])          # ISO 날짜, ISO 타임스탬프 둘 다 여기서 끝난다
+    except ValueError:
+        pass
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
+    except ValueError:
+        pass
+    for fmt in ("%Y/%m/%d", "%Y.%m.%d", "%d %b %Y", "%b %d %Y", "%Y%m%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    raise EventFileError(
+        f"Can't read {s!r} as a date. Export dates as ISO — 2026-07-01, or a "
+        "full timestamp like 2026-07-01T10:23:00Z. Formats like 07/01/2026 are "
+        "ambiguous and are refused rather than guessed at."
+    )
+
+
+def _match_columns(fields: list[str]) -> dict[str, str]:
+    """파일의 실제 컬럼명을 user_id / date / event 로 대응시킨다."""
+    lowered = {f.lower().strip(): f for f in fields}
+    found: dict[str, str] = {}
+    for canonical, aliases in COLUMN_ALIASES.items():
+        for alias in aliases:
+            if alias in lowered:
+                found[canonical] = lowered[alias]
+                break
+    missing = [c for c in ("user_id", "date", "event") if c not in found]
+    if missing:
+        raise EventFileError(
+            f"Missing {missing} — the file has {fields}. Rename the columns, or "
+            "alias them in your query: SELECT user_id, created_at AS date, "
+            "'purchase' AS event FROM orders"
+        )
+    return found
+
+
+def _read_rows(path: str) -> list[dict]:
+    """CSV / TSV / JSON / JSONL 중 무엇이든 dict 목록으로 읽는다.
+
+    형식을 넓게 받는 게 DB를 넓게 받는 길이다. psql --csv, mysql --json,
+    mongoexport, bq --format=json, 스프레드시트 내보내기가 전부 이 넷 안에 있고,
+    그러면 우리가 DB 드라이버를 하나도 더 안 붙여도 된다. 무엇보다 데이터가
+    에이전트의 문맥을 거치지 않고 디스크에서 바로 온다.
+    """
+    with open(path, newline="") as f:
+        text = f.read()
+    if not text.strip():
+        raise EventFileError(f"{path} is empty.")
+
+    head = text.lstrip()[0]
+    if head in "[{":
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:       # JSONL — 한 줄에 객체 하나
+            data = [json.loads(line) for line in text.splitlines() if line.strip()]
+        if isinstance(data, dict):         # {"rows": [...]} / {"data": [...]} 형태
+            data = next((v for v in data.values() if isinstance(v, list)), None)
+        if not isinstance(data, list) or not data:
+            raise EventFileError(f"{path} holds no list of rows.")
+        return data
+
+    sample = text[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",\t;|")
+    except csv.Error:
+        dialect = csv.excel
+    return list(csv.DictReader(io.StringIO(text), dialect=dialect))
+
+
 def load_events(csv_path: str) -> list[dict]:
-    with open(csv_path, newline="") as f:
-        return [
-            {**row, "date": date.fromisoformat(row["date"])}
-            for row in csv.DictReader(f)
-        ]
+    """이벤트 파일을 읽는다 — 형식과 컬럼명은 알아서 맞춘다.
+
+    인자 이름이 csv_path인 건 역사적 이유다. CSV, TSV, JSON, JSONL 다 받는다.
+    """
+    rows = _read_rows(csv_path)
+    if not rows:
+        raise EventFileError(f"{csv_path} has no rows.")
+    cols = _match_columns(list(rows[0].keys()))
+    out = []
+    for row in rows:
+        out.append({
+            "user_id": str(row[cols["user_id"]]),
+            "date": parse_day(row[cols["date"]]),
+            "event": str(row[cols["event"]]),
+            "platform": str(row[cols["platform"]]) if "platform" in cols else "unknown",
+        })
+    return out
 
 
 class ValueEventError(ValueError):

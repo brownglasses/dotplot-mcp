@@ -32,8 +32,23 @@ Statistics never come from an LLM, so they are never wrong.
 
 ## Quick start
 
-Requirements: [uv](https://docs.astral.sh/uv/), and a 3-column CSV: `user_id, date, event`
-(a 4th `platform` column is optional and shows up as a label in the dot plot).
+Requirements: [uv](https://docs.astral.sh/uv/), and three columns of data:
+who, when, what — `user_id, date, event`.
+
+Whatever your database tool already exports is fine. CSV, TSV, JSON, and JSONL
+are read directly, columns are matched by name (`uid`, `customer_id`,
+`created_at`, `event_name`, … all work), and timestamps are cut down to days:
+
+```bash
+psql -c "..." --csv > events.csv          # Postgres
+mysql --json -e "..." > events.json       # MySQL
+mongoexport --collection=orders ...       # MongoDB
+bq query --format=json "..." > events.json # BigQuery
+```
+
+That is the whole "which databases are supported" answer: the ones you can
+already query. The data goes from your database to a file to the report — it
+never passes through the model.
 
 One command — no clone, no setup:
 
