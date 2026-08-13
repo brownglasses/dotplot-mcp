@@ -8,26 +8,27 @@
 <meta name="description" content="See individual users, not aggregate charts — YC's Dot Plot methodology as an MCP server.">
 <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
 <style>
+:root{--ink:#222;--blue:#2f7de1;--orange:#e05c26;--line:#22222220}
+*{box-sizing:border-box}
 body{margin:0;background:#fdfdfb;background-image:radial-gradient(#e8e6df 1px,transparent 1px);
-  background-size:22px 22px;font-family:'Patrick Hand',sans-serif;color:#222;padding:44px 20px 60px}
+  background-size:22px 22px;font-family:'Patrick Hand',sans-serif;color:var(--ink);padding:44px 20px 60px}
 .wrap{max-width:720px;margin:0 auto;text-align:center}
 h1{font-size:46px;margin:0 0 4px}
 .sub{font-size:21px;color:#777;margin:0 0 26px}
 .shot{width:100%;border:2px solid #222;border-radius:14px;box-shadow:5px 5px 0 #22222215;margin:0 0 26px}
 .install{display:flex;align-items:center;gap:10px;background:#1d2833;color:#d8e6f7;
-  border-radius:12px;padding:13px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13px;margin:0 0 26px}
+  border-radius:12px;padding:13px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13px;margin:0 0 8px}
 .install .scroll{overflow-x:auto;flex:1;text-align:left}
 .install code{white-space:nowrap}
 .copy{flex-shrink:0;border:1px solid #d8e6f766;background:none;color:#d8e6f7;border-radius:8px;
   padding:6px 12px;font:inherit;cursor:pointer}
-.btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{font-size:20px;text-decoration:none;color:#222;border:2px solid #222;border-radius:12px;
-  padding:11px 24px;box-shadow:3px 3px 0 #22222220;background:#fff}
-.btn.primary{background:#2f7de1;border-color:#2f7de1;color:#fff}
+.copy:hover{background:#ffffff14}
+.trust{display:flex;gap:8px 14px;flex-wrap:wrap;justify-content:center;margin:0 0 30px;font-size:15px;color:#8a877e}
+.trust span::before{content:"✓ ";color:#0f8a3d}
 .how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:34px 0 8px;text-align:left}
 @media(max-width:640px){.how{grid-template-columns:1fr}}
 .step{border:2px solid #222;border-radius:14px;background:#fff;padding:14px 16px;box-shadow:3px 3px 0 #22222215}
-.step .n{display:inline-block;width:26px;height:26px;border-radius:50%;background:#2f7de1;color:#fff;
+.step .n{display:inline-block;width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;
   text-align:center;line-height:26px;font-size:16px;margin-bottom:6px}
 .step h3{font-size:20px;margin:0 0 4px}
 .step p{font-size:16px;color:#8a877e;margin:0;line-height:1.45}
@@ -36,12 +37,75 @@ h1{font-size:46px;margin:0 0 4px}
   display:inline-block;margin-top:6px}
 .gets{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin:6px 0 30px}
 .get{font-size:15.5px;border:1.5px solid #22222245;border-radius:99px;padding:5px 14px;background:#fff}
+.btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn{font-size:20px;text-decoration:none;color:#222;border:2px solid #222;border-radius:12px;
+  padding:11px 24px;box-shadow:3px 3px 0 #22222220;background:#fff;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.small{font-size:17px;padding:8px 18px;box-shadow:2px 2px 0 #22222218}
+
+.demo{border:2.5px solid #222;border-radius:16px;background:#fff;padding:20px 22px;margin:36px 0 0;
+  box-shadow:6px 6px 0 #22222215;text-align:left}
+.demo h2{font-size:26px;margin:0 0 2px;text-align:center}
+.demo .lead{font-size:17px;color:#8a877e;margin:0 0 14px;text-align:center}
+.demo .lead code{background:#f1efe8;padding:2px 6px;border-radius:5px;font-size:14px}
+.demo textarea{width:100%;height:118px;border:2px solid #22222235;border-radius:10px;padding:10px 12px;
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;resize:vertical;background:#fdfdfb;color:#222}
+.demo textarea:focus{outline:none;border-color:var(--blue)}
+.demorow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 0}
+.privacy{font-size:15px;color:#8a877e;margin:10px 0 0;text-align:center}
+.privacy b{color:#0f8a3d}
+.out{margin:18px 0 0;display:none}
+.out.on{display:block}
+.grid{overflow-x:auto;margin:0 0 12px}
+.grid table{border-collapse:collapse}
+.grid td,.grid th{border:1.2px solid #222;width:22px;height:22px;text-align:center;font-size:11px;padding:0}
+.grid th{border:none;height:14px}
+.grid td.nm,.grid th.nm{border:none;border-right:1.2px solid #222;text-align:left;padding-right:8px;
+  width:64px;font-size:13px;color:#666;white-space:nowrap}
+.grid td.we{background:#fae8dd}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--blue);vertical-align:middle}
+.ring{display:inline-block;width:7px;height:7px;border-radius:50%;border:2.5px solid var(--blue);vertical-align:middle}
+.mk{display:inline-block;width:15px;height:15px;border-radius:4px;background:var(--orange);color:#fff;
+  font-size:10px;line-height:15px;vertical-align:middle}
+.ahabox{border:2.5px solid var(--orange);border-radius:12px;background:#fff8f4;padding:12px 16px;margin:0 0 10px}
+.ahabox h3{margin:0 0 4px;font-size:20px}
+.ahabox p{margin:0;font-size:17px;color:#444;line-height:1.5}
+.ahabox b{color:var(--orange)}
+.glance{font-size:17px;color:#555;margin:0}
+.glance span{display:inline-block;margin-right:14px}
+.note{font-size:15px;color:#999;margin:10px 0 0}
+.nextcta{border-top:1.5px dashed var(--line);margin:14px 0 0;padding:14px 0 0;text-align:center;font-size:17px;color:#555}
+.err{color:#d0442c;font-size:16px;margin:10px 0 0}
 </style></head><body><div class="wrap">
 <h1>Dotplot</h1>
 <p class="sub">One row per user, one dot per active day — ask Claude, get your aha moment.</p>
 <img class="shot" src="/dotplot.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
+
 <div class="install"><div class="scroll"><code id="cmd">claude mcp add dotplot -- uvx dotplot-mcp</code></div>
-<button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
+<button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='✓ copied';setTimeout(()=>this.textContent='copy',1500)})">copy</button></div>
+<div class="trust">
+<span>for Claude Code &amp; Cursor</span><span>open source (MIT)</span><span>no signup, no SDK</span>
+<span>your data never leaves your machine</span><span>stats computed by Python, not the LLM</span>
+</div>
+
+<div class="demo">
+<h2>Don't trust it? Run it here first.</h2>
+<p class="lead">Paste your own event log — 3 columns: <code>user_id, date, event</code></p>
+<textarea id="ta" spellcheck="false" placeholder="user_id,date,event
+u01,2026-07-01,play_song
+u01,2026-07-02,play_song
+u01,2026-07-05,create_playlist
+u02,2026-07-01,purchase
+..."></textarea>
+<div class="demorow">
+<button class="btn primary small" id="run">Find my aha moment</button>
+<button class="btn small" id="load">Load sample data</button>
+</div>
+<p class="privacy">Runs entirely in this tab — <b>nothing is uploaded.</b> Open DevTools → Network and watch: zero requests.</p>
+<div class="out" id="out"></div>
+<div id="err" class="err"></div>
+</div>
+
 <div class="how">
 <div class="step"><span class="n">1</span>
 <h3>Install</h3>
@@ -62,7 +126,500 @@ h1{font-size:46px;margin:0 0 4px}
 <span class="get">🌍 any language</span>
 </div>
 <div class="btns">
-<a class="btn primary" href="/r/9615d626a122.html">Sample report</a>
-<a class="btn" href="https://github.com/brownglasses/dotplot-mcp">GitHub ⭐</a>
+<a class="btn primary" href="https://github.com/brownglasses/dotplot-mcp">GitHub ⭐</a>
+<a class="btn" href="/r/9615d626a122.html">Sample report</a>
 </div>
-</div></body></html>
+</div>
+
+<script>
+const SAMPLE = `user_id,date,event
+u03,2026-07-01,play_song
+u03,2026-07-01,search
+u05,2026-07-01,play_song
+u05,2026-07-01,search
+u09,2026-07-01,play_song
+u09,2026-07-01,search
+u13,2026-07-01,play_song
+u01,2026-07-02,play_song
+u04,2026-07-02,play_song
+u06,2026-07-02,play_song
+u06,2026-07-02,search
+u10,2026-07-02,play_song
+u10,2026-07-02,search
+u14,2026-07-02,play_song
+u01,2026-07-03,play_song
+u02,2026-07-03,play_song
+u03,2026-07-03,play_song
+u04,2026-07-03,play_song
+u07,2026-07-03,play_song
+u11,2026-07-03,play_song
+u15,2026-07-03,play_song
+u15,2026-07-03,search
+u01,2026-07-04,play_song
+u02,2026-07-04,play_song
+u03,2026-07-04,play_song
+u04,2026-07-04,play_song
+u07,2026-07-04,play_song
+u08,2026-07-04,play_song
+u12,2026-07-04,play_song
+u12,2026-07-04,search
+u16,2026-07-04,play_song
+u16,2026-07-04,search
+u19,2026-07-04,play_song
+u20,2026-07-04,play_song
+u20,2026-07-04,search
+u21,2026-07-04,play_song
+u22,2026-07-04,play_song
+u22,2026-07-04,search
+u01,2026-07-05,play_song
+u02,2026-07-05,play_song
+u03,2026-07-05,play_song
+u04,2026-07-05,play_song
+u06,2026-07-05,play_song
+u08,2026-07-05,play_song
+u10,2026-07-05,play_song
+u11,2026-07-05,play_song
+u17,2026-07-05,play_song
+u19,2026-07-05,play_song
+u20,2026-07-05,play_song
+u20,2026-07-05,search
+u21,2026-07-05,play_song
+u22,2026-07-05,play_song
+u02,2026-07-06,play_song
+u03,2026-07-06,play_song
+u03,2026-07-06,search
+u04,2026-07-06,play_song
+u09,2026-07-06,play_song
+u09,2026-07-06,search
+u18,2026-07-06,play_song
+u01,2026-07-07,play_song
+u02,2026-07-07,play_song
+u04,2026-07-07,play_song
+u05,2026-07-07,play_song
+u05,2026-07-07,search
+u05,2026-07-07,create_playlist
+u10,2026-07-07,play_song
+u10,2026-07-07,search
+u01,2026-07-08,play_song
+u02,2026-07-08,play_song
+u03,2026-07-08,play_song
+u04,2026-07-08,play_song
+u05,2026-07-08,play_song
+u05,2026-07-08,search
+u10,2026-07-08,play_song
+u10,2026-07-08,search
+u10,2026-07-08,create_playlist
+u01,2026-07-09,play_song
+u02,2026-07-09,play_song
+u02,2026-07-09,search
+u03,2026-07-09,play_song
+u03,2026-07-09,search
+u04,2026-07-09,play_song
+u05,2026-07-09,play_song
+u05,2026-07-09,search
+u10,2026-07-09,play_song
+u01,2026-07-10,play_song
+u01,2026-07-10,search
+u02,2026-07-10,play_song
+u03,2026-07-10,play_song
+u04,2026-07-10,play_song
+u05,2026-07-10,play_song
+u05,2026-07-10,search
+u07,2026-07-10,play_song
+u07,2026-07-10,search
+u09,2026-07-10,play_song
+u09,2026-07-10,create_playlist
+u10,2026-07-10,play_song
+u11,2026-07-10,play_song
+u11,2026-07-10,search
+u11,2026-07-10,create_playlist
+u01,2026-07-11,play_song
+u01,2026-07-11,search
+u02,2026-07-11,play_song
+u02,2026-07-11,search
+u03,2026-07-11,play_song
+u04,2026-07-11,play_song
+u05,2026-07-11,play_song
+u09,2026-07-11,play_song
+u10,2026-07-11,play_song
+u11,2026-07-11,play_song
+u12,2026-07-11,play_song
+u12,2026-07-11,create_playlist
+u20,2026-07-11,play_song
+u21,2026-07-11,play_song
+u22,2026-07-11,play_song
+u22,2026-07-11,search
+u02,2026-07-12,play_song
+u02,2026-07-12,search
+u03,2026-07-12,play_song
+u04,2026-07-12,play_song
+u05,2026-07-12,play_song
+u09,2026-07-12,play_song
+u09,2026-07-12,search
+u10,2026-07-12,play_song
+u10,2026-07-12,search
+u11,2026-07-12,play_song
+u11,2026-07-12,search
+u12,2026-07-12,play_song
+u12,2026-07-12,search
+u19,2026-07-12,play_song
+u20,2026-07-12,play_song
+u20,2026-07-12,search
+u21,2026-07-12,play_song
+u22,2026-07-12,play_song
+u01,2026-07-13,play_song
+u01,2026-07-13,search
+u03,2026-07-13,play_song
+u04,2026-07-13,play_song
+u05,2026-07-13,play_song
+u09,2026-07-13,play_song
+u09,2026-07-13,search
+u11,2026-07-13,play_song
+u11,2026-07-13,search
+u12,2026-07-13,play_song
+u01,2026-07-14,play_song
+u01,2026-07-14,search
+u02,2026-07-14,play_song
+u03,2026-07-14,play_song
+u04,2026-07-14,play_song
+u05,2026-07-14,play_song
+u09,2026-07-14,play_song
+u10,2026-07-14,play_song
+u10,2026-07-14,search
+u11,2026-07-14,play_song
+u11,2026-07-14,search
+u12,2026-07-14,play_song
+u01,2026-07-15,play_song
+u01,2026-07-15,search
+u04,2026-07-15,play_song
+u05,2026-07-15,play_song
+u09,2026-07-15,play_song
+u09,2026-07-15,search
+u10,2026-07-15,play_song
+u11,2026-07-15,play_song
+u12,2026-07-15,play_song
+u12,2026-07-15,search
+u01,2026-07-16,play_song
+u05,2026-07-16,play_song
+u07,2026-07-16,play_song
+u09,2026-07-16,play_song
+u10,2026-07-16,play_song
+u11,2026-07-16,play_song
+u12,2026-07-16,play_song
+u01,2026-07-17,play_song
+u01,2026-07-17,search
+u02,2026-07-17,play_song
+u04,2026-07-17,play_song
+u05,2026-07-17,play_song
+u05,2026-07-17,search
+u09,2026-07-17,play_song
+u09,2026-07-17,search
+u10,2026-07-17,play_song
+u11,2026-07-17,play_song
+u02,2026-07-18,play_song
+u03,2026-07-18,play_song
+u05,2026-07-18,play_song
+u05,2026-07-18,search
+u08,2026-07-18,play_song
+u09,2026-07-18,play_song
+u10,2026-07-18,play_song
+u10,2026-07-18,search
+u11,2026-07-18,play_song
+u12,2026-07-18,play_song
+u12,2026-07-18,search
+u19,2026-07-18,play_song
+u19,2026-07-18,search
+u20,2026-07-18,play_song
+u20,2026-07-18,search
+u21,2026-07-18,play_song
+u22,2026-07-18,play_song
+u22,2026-07-18,search
+u02,2026-07-19,play_song
+u03,2026-07-19,play_song
+u04,2026-07-19,play_song
+u05,2026-07-19,play_song
+u09,2026-07-19,play_song
+u10,2026-07-19,play_song
+u11,2026-07-19,play_song
+u12,2026-07-19,play_song
+u19,2026-07-19,play_song
+u20,2026-07-19,play_song
+u20,2026-07-19,search
+u21,2026-07-19,play_song
+u22,2026-07-19,play_song
+u01,2026-07-20,play_song
+u02,2026-07-20,play_song
+u03,2026-07-20,play_song
+u04,2026-07-20,play_song
+u05,2026-07-20,play_song
+u10,2026-07-20,play_song
+u11,2026-07-20,play_song
+u12,2026-07-20,play_song
+u12,2026-07-20,search
+u01,2026-07-21,play_song
+u02,2026-07-21,play_song
+u03,2026-07-21,play_song
+u05,2026-07-21,play_song
+u09,2026-07-21,play_song
+u09,2026-07-21,search
+u10,2026-07-21,play_song
+u11,2026-07-21,play_song
+u12,2026-07-21,play_song
+u01,2026-07-22,play_song
+u02,2026-07-22,play_song
+u04,2026-07-22,play_song
+u05,2026-07-22,play_song
+u09,2026-07-22,play_song
+u09,2026-07-22,search
+u10,2026-07-22,play_song
+u11,2026-07-22,play_song
+u11,2026-07-22,search
+u12,2026-07-22,play_song
+u12,2026-07-22,search
+u01,2026-07-23,play_song
+u02,2026-07-23,play_song
+u04,2026-07-23,play_song
+u05,2026-07-23,play_song
+u05,2026-07-23,search
+u08,2026-07-23,play_song
+u08,2026-07-23,create_playlist
+u09,2026-07-23,play_song
+u10,2026-07-23,play_song
+u11,2026-07-23,play_song
+u11,2026-07-23,search
+u02,2026-07-24,play_song
+u03,2026-07-24,play_song
+u04,2026-07-24,play_song
+u05,2026-07-24,play_song
+u08,2026-07-24,play_song
+u10,2026-07-24,play_song
+u11,2026-07-24,play_song
+u11,2026-07-24,search
+u12,2026-07-24,play_song
+u01,2026-07-25,play_song
+u02,2026-07-25,play_song
+u03,2026-07-25,play_song
+u03,2026-07-25,search
+u04,2026-07-25,play_song
+u06,2026-07-25,play_song
+u07,2026-07-25,play_song
+u07,2026-07-25,search
+u08,2026-07-25,play_song
+u09,2026-07-25,play_song
+u10,2026-07-25,play_song
+u11,2026-07-25,play_song
+u12,2026-07-25,play_song
+u19,2026-07-25,play_song
+u20,2026-07-25,play_song
+u20,2026-07-25,search
+u21,2026-07-25,play_song
+u22,2026-07-25,play_song
+u01,2026-07-26,play_song
+u01,2026-07-26,search
+u02,2026-07-26,play_song
+u02,2026-07-26,search
+u03,2026-07-26,play_song
+u04,2026-07-26,play_song
+u08,2026-07-26,play_song
+u08,2026-07-26,search
+u09,2026-07-26,play_song
+u10,2026-07-26,play_song
+u10,2026-07-26,search
+u11,2026-07-26,play_song
+u12,2026-07-26,play_song
+u19,2026-07-26,play_song
+u20,2026-07-26,play_song
+u21,2026-07-26,play_song
+u21,2026-07-26,search
+u22,2026-07-26,play_song
+u22,2026-07-26,search
+u01,2026-07-27,play_song
+u02,2026-07-27,play_song
+u02,2026-07-27,search
+u04,2026-07-27,play_song
+u05,2026-07-27,play_song
+u08,2026-07-27,play_song
+u09,2026-07-27,play_song
+u10,2026-07-27,play_song
+u10,2026-07-27,search
+u11,2026-07-27,play_song
+u11,2026-07-27,search
+u12,2026-07-27,play_song
+u01,2026-07-28,play_song
+u01,2026-07-28,search
+u02,2026-07-28,play_song
+u03,2026-07-28,play_song
+u04,2026-07-28,play_song
+u04,2026-07-28,search
+u05,2026-07-28,play_song
+u05,2026-07-28,search
+u08,2026-07-28,play_song
+u09,2026-07-28,play_song
+u09,2026-07-28,search
+u10,2026-07-28,play_song
+u11,2026-07-28,play_song`;
+const VANITY = ['open_app','app_open','session_start','page_view','pageview','view_home','scroll_feed','app_launch'];
+const DAY = 86400000;
+const d2n = s => { const p = s.trim().slice(0,10).split('-').map(Number); return Date.UTC(p[0], p[1]-1, p[2]); };
+const isWeekend = n => { const w = new Date(n).getUTCDay(); return w === 0 || w === 6; };
+const esc = s => String(s).replace(/[<>&]/g, '');
+
+function parseRows(text){
+  const out = [];
+  for (const raw of text.split(/\r?\n/)){
+    const line = raw.trim();
+    if (!line) continue;
+    const f = line.split(',').map(s => s.trim());
+    if (f.length < 3) continue;
+    let uid, date, ev;
+    if (f.length >= 4 && /^\d{4}-\d{2}-\d{2}/.test(f[2])) { uid = f[0]; date = f[2]; ev = f[3]; }
+    else { uid = f[0]; date = f[1]; ev = f[2]; }
+    if (!/^\d{4}-\d{2}-\d{2}/.test(date)) continue;
+    if (!uid || !ev) continue;
+    out.push({ uid, n: d2n(date), ev });
+  }
+  return out;
+}
+
+function buildUsers(rows, valueEvent){
+  const users = new Map();
+  for (const r of rows){
+    let u = users.get(r.uid);
+    if (!u) { u = { id: r.uid, signup: r.n, value: new Set(), special: new Map() }; users.set(r.uid, u); }
+    if (r.n < u.signup) u.signup = r.n;
+    if (r.ev === valueEvent) u.value.add(r.n);
+    else if (!VANITY.includes(r.ev)) {
+      if (!u.special.has(r.n)) u.special.set(r.n, new Set());
+      u.special.get(r.n).add(r.ev);
+    }
+  }
+  return [...users.values()];
+}
+
+function classify(users, today){
+  const b = { churned: [], weekend_only: [], regular: [], casual: [] };
+  for (const u of users){
+    const active = [...u.value].sort((a,c) => a-c);
+    const tenure = (today - u.signup)/DAY + 1;
+    const recent = active.filter(d => (today-d)/DAY < 14);
+    if (active.length <= 1 && tenure >= 7) b.churned.push(u);
+    else if (active.length >= 2 && active.every(isWeekend)) b.weekend_only.push(u);
+    else if (tenure >= 14 && recent.length >= 10) b.regular.push(u);
+    else b.casual.push(u);
+  }
+  return b;
+}
+
+function findAha(rows, users, valueEvent, today){
+  const MIN = 5;
+  const isRegular = u => [...u.value].filter(d => (today-d)/DAY < 14).length >= 8;
+  const first = new Map();
+  for (const r of rows){
+    if (r.ev === valueEvent || VANITY.includes(r.ev)) continue;
+    if (!first.has(r.ev)) first.set(r.ev, new Map());
+    const m = first.get(r.ev);
+    if (!m.has(r.uid) || r.n < m.get(r.uid)) m.set(r.uid, r.n);
+  }
+  const results = [];
+  for (const entry of first){
+    const ev = entry[0], m = entry[1];
+    const a = users.filter(u => m.has(u.id));
+    const bg = users.filter(u => !m.has(u.id));
+    if (a.length < MIN || bg.length < MIN) continue;
+    const rateA = a.filter(isRegular).length / a.length;
+    const rateB = bg.filter(isRegular).length / bg.length;
+    const changes = [];
+    for (const u of a){
+      const f = m.get(u.id);
+      const pre = (f - u.signup)/DAY, post = (today - f)/DAY;
+      if (pre < 3 || post < 3) continue;
+      const preRate = [...u.value].filter(d => d >= u.signup && d < f).length / pre;
+      const postRate = [...u.value].filter(d => d >= f).length / (post + 1);
+      changes.push(postRate - preRate);
+    }
+    const change = changes.length >= MIN ? changes.reduce((x,y) => x+y, 0)/changes.length : null;
+    results.push({ ev, didCount: a.length, notCount: bg.length, rateA, rateB, change });
+  }
+  results.sort((x,y) => (x.change === null) - (y.change === null)
+    || (y.change === null ? -1 : y.change) - (x.change === null ? -1 : x.change)
+    || (y.rateA - y.rateB) - (x.rateA - x.rateB));
+  return results;
+}
+
+function pickValueEvent(rows){
+  const c = {};
+  for (const r of rows) c[r.ev] = (c[r.ev] || 0) + 1;
+  const ranked = Object.keys(c).sort((a,b) => c[b]-c[a]);
+  const real = ranked.filter(e => !VANITY.includes(e));
+  return real.length ? real[0] : ranked[0];
+}
+
+function renderGrid(users, today, markEv){
+  const sorted = [...users].sort((a,b) => a.signup - b.signup).slice(0, 12);
+  const start = Math.min.apply(null, users.map(u => u.signup));
+  const days = Math.min(Math.round((today - start)/DAY) + 1, 35);
+  let h = '<div class="grid"><table>';
+  for (const u of sorted){
+    h += '<tr><td class="nm">' + esc(u.id) + '</td>';
+    for (let i = 0; i < days; i++){
+      const n = start + i*DAY;
+      const we = isWeekend(n) ? ' class="we"' : '';
+      const sp = u.special.get(n);
+      let cell = '';
+      if (markEv && sp && sp.has(markEv)) cell = '<span class="mk">' + esc(markEv[0].toUpperCase()) + '</span>';
+      else if (u.value.has(n)) cell = n === u.signup ? '<span class="ring"></span>' : '<span class="dot"></span>';
+      h += '<td' + we + '>' + cell + '</td>';
+    }
+    h += '</tr>';
+  }
+  return h + '</table></div>';
+}
+
+const pct = x => Math.round(x*100) + '%';
+
+function run(){
+  const err = document.getElementById('err'), out = document.getElementById('out');
+  err.textContent = ''; out.classList.remove('on');
+  const rows = parseRows(document.getElementById('ta').value);
+  if (rows.length < 10){ err.textContent = 'Need at least ~10 rows of user_id,date,event — or load the sample.'; return; }
+  const valueEvent = pickValueEvent(rows);
+  const users = buildUsers(rows, valueEvent);
+  const today = Math.max.apply(null, rows.map(r => r.n));
+  const b = classify(users, today);
+  const aha = findAha(rows, users, valueEvent, today);
+  let top = null;
+  for (const a of aha){ if (a.change !== null && a.change >= 0.3) { top = a; break; } }
+
+  let h = renderGrid(users, today, top ? top.ev : null);
+  if (top){
+    h += '<div class="ahabox"><h3>💡 Your aha moment: ' + esc(top.ev) + '</h3><p>' +
+      top.didCount + ' users did it — <b>' + pct(top.rateA) + '</b> became regulars. ' +
+      'Of the ' + top.notCount + ' who didn\'t, only ' + pct(top.rateB) + ' did. ' +
+      'Their own activity rose <b>' + pct(top.change) + '</b> after doing it.</p></div>';
+  } else {
+    h += '<div class="ahabox" style="border-color:#c9c6bc;background:#faf9f6"><h3>No confident aha moment yet</h3>' +
+      '<p>Nothing cleared the bar — it needs 5+ users on each side and a clear before/after change. ' +
+      'That is the honest answer; the real tool uses the same guard so it never invents a signal.</p></div>';
+  }
+  h += '<p class="glance"><span>⭕ ' + b.churned.length + ' used once, never returned</span>' +
+       '<span>🔵 ' + b.regular.length + ' almost daily</span>' +
+       '<span>📅 ' + b.weekend_only.length + ' weekend-only</span>' +
+       '<span>· ' + b.casual.length + ' occasional</span></p>';
+  h += '<p class="note">value event: <b>' + esc(valueEvent) + '</b> · ' + users.length + ' users · ' +
+       rows.length + ' events — same math as the Python engine.</p>';
+  h += '<div class="nextcta">That is one metric, on rows you pasted.<br>' +
+       'Install it to get the full report — funnel, weekly retention, history, shareable link.<br><br>' +
+       '<button class="btn primary small" id="cta2">Copy install command</button></div>';
+  out.innerHTML = h; out.classList.add('on');
+  const c2 = document.getElementById('cta2');
+  if (c2) c2.addEventListener('click', function(){
+    navigator.clipboard.writeText(document.getElementById('cmd').textContent);
+    this.textContent = '✓ command copied';
+  });
+}
+
+document.getElementById('run').addEventListener('click', run);
+document.getElementById('load').addEventListener('click', function(){
+  document.getElementById('ta').value = SAMPLE; run();
+});
+</script></body></html>
