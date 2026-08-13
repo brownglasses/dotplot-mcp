@@ -41,6 +41,17 @@ STRINGS: dict[str, dict[str, str]] = {
             "→ Ask one of them directly what blocks weekday use."
         ),
         "insight.none": "No clear pattern yet. Check again once more data accumulates.",
+        # 온보딩 퍼널
+        "funnel.title": "Where do new users drop off?",
+        "funnel.signup": "Signed up",
+        "funnel.first_value": "Got first value",
+        "funnel.returned": "Came back another day",
+        "funnel.recent": "Active in last 2 weeks",
+        "funnel.median_days": "Median time from signup to first value: {days} day(s)",
+        # 리텐션 커브
+        "retention.title": "Weekly retention",
+        "retention.subtitle": "% of users active in week N after their signup",
+        "retention.week": "W{n}",
     },
     "ko": {
         "bucket.churned": "한번 쓰고 떠남 (온보딩 의심)",
@@ -73,6 +84,15 @@ STRINGS: dict[str, dict[str, str]] = {
             "→ 주중 사용을 막는 게 뭔지, 그 유저 한 명에게 직접 물어보세요."
         ),
         "insight.none": "아직 뚜렷한 패턴이 없어요. 데이터가 더 쌓이면 다시 확인해보세요.",
+        "funnel.title": "새 유저는 어디서 이탈하나?",
+        "funnel.signup": "가입",
+        "funnel.first_value": "첫 가치 경험",
+        "funnel.returned": "다른 날 재방문",
+        "funnel.recent": "최근 2주 내 활동",
+        "funnel.median_days": "가입 → 첫 가치까지 걸린 시간(중앙값): {days}일",
+        "retention.title": "주차별 리텐션",
+        "retention.subtitle": "가입 후 N주차에 활동한 유저 비율",
+        "retention.week": "{n}주",
     },
     "ja": {
         "bucket.churned": "一度使って離脱 (オンボーディングに問題?)",
@@ -105,6 +125,15 @@ STRINGS: dict[str, dict[str, str]] = {
             "→ 平日の利用を妨げているものを、そのユーザーに直接聞いてみましょう。"
         ),
         "insight.none": "まだ明確なパターンはありません。データが貯まったら再確認してください。",
+        "funnel.title": "新規ユーザーはどこで離脱する?",
+        "funnel.signup": "登録",
+        "funnel.first_value": "最初の価値体験",
+        "funnel.returned": "別の日に再訪",
+        "funnel.recent": "直近2週間で活動",
+        "funnel.median_days": "登録 → 最初の価値までの日数(中央値): {days}日",
+        "retention.title": "週次リテンション",
+        "retention.subtitle": "登録後N週目に活動したユーザーの割合",
+        "retention.week": "{n}週",
     },
 }
 

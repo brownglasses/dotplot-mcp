@@ -8,6 +8,8 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mcp>=1.2.0
+Provides-Extra: db
+Requires-Dist: psycopg[binary]>=3.1; extra == "db"
 Dynamic: license-file
 
 # Dot Plot MCP
@@ -46,11 +48,15 @@ Statistics never come from an LLM, so they are never wrong.
 
 Requirements: [uv](https://docs.astral.sh/uv/), and a 3-column CSV: `user_id, date, event`.
 
-```bash
-# Register with Claude Code
-claude mcp add dotplot -- uv run --python 3.12 /path/to/dotplot-mcp/server.py
+One command — no clone, no setup:
 
-# No data yet? Try the sample
+```bash
+claude mcp add dotplot -- uvx --from git+https://github.com/brownglasses/dotplot-mcp dotplot-mcp
+```
+
+No data yet? Clone and try the sample:
+
+```bash
 uv run sample_data.py   # generates events.csv (40 fake users)
 uv run demo.py          # watch the whole pipeline run
 ```

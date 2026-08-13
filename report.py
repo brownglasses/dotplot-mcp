@@ -69,6 +69,8 @@ def render_html_report(
     mark_events: dict[str, str] | None = None,   # {"create_playlist": "P", "share": "S"}
     mark_labels: dict[str, str] | None = None,   # {"create_playlist": "P = created a playlist"}
     insights: list[str] | None = None,
+    funnel: dict | None = None,
+    retention: list[dict] | None = None,
     lang: str = "en",
 ) -> str:
     buckets = classify_users(users, today)
@@ -114,6 +116,52 @@ def render_html_report(
         for ev, letter in mark_events.items()
     )
 
+    funnel_card = ""
+    if funnel and funnel["steps"][0]["count"] > 0:
+        total = funnel["steps"][0]["count"]
+        bars = []
+        prev = total
+        for step in funnel["steps"]:
+            pct = step["count"] / total
+            drop = f'<span class="drop">-{prev - step["count"]}</span>' if step["count"] < prev else ""
+            bars.append(
+                f'<div class="frow"><div class="flabel">{t(lang, "funnel." + step["key"])}</div>'
+                f'<div class="fbar"><div class="ffill" style="width:{max(pct*100,2):.0f}%"></div></div>'
+                f'<div class="fnum">{step["count"]} <small>({pct:.0%})</small> {drop}</div></div>'
+            )
+            prev = step["count"]
+        median = ""
+        if funnel["median_days_to_value"] is not None:
+            median = f'<p class="note">{t(lang, "funnel.median_days", days=funnel["median_days_to_value"])}</p>'
+        funnel_card = (
+            f'<div class="card"><h2>{t(lang, "funnel.title")}</h2>{"".join(bars)}{median}</div>'
+        )
+
+    retention_card = ""
+    if retention and len(retention) >= 3:
+        W, H, PAD = 640, 170, 34
+        n = len(retention)
+        pts = []
+        for i, r in enumerate(retention):
+            x = PAD + i * (W - 2 * PAD) / max(n - 1, 1)
+            y = H - PAD - r["rate"] * (H - 2 * PAD)
+            pts.append((x, y, r))
+        polyline = " ".join(f"{x:.0f},{y:.0f}" for x, y, _ in pts)
+        dots = "".join(
+            f'<circle cx="{x:.0f}" cy="{y:.0f}" r="5" fill="#2f7de1"/>'
+            f'<text x="{x:.0f}" y="{y-12:.0f}" text-anchor="middle" font-size="15" fill="#222">{r["rate"]:.0%}</text>'
+            f'<text x="{x:.0f}" y="{H-10}" text-anchor="middle" font-size="14" fill="#999">{t(lang, "retention.week", n=r["week"])}</text>'
+            for x, y, r in pts
+        )
+        retention_card = (
+            f'<div class="card"><h2>{t(lang, "retention.title")}</h2>'
+            f'<p class="note" style="margin:0 0 6px">{t(lang, "retention.subtitle")}</p>'
+            f'<svg viewBox="0 0 {W} {H}" style="width:100%;max-width:{W}px">'
+            f'<line x1="{PAD}" y1="{H-PAD}" x2="{W-PAD}" y2="{H-PAD}" stroke="#ccc" stroke-width="1.5"/>'
+            f'<polyline points="{polyline}" fill="none" stroke="#2f7de1" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>'
+            f"{dots}</svg></div>"
+        )
+
     insight_card = ""
     if insights:
         items = "".join(f"<li>{txt}</li>" for txt in insights)
@@ -158,6 +206,13 @@ td.we,th.we{{background:#fae8dd}}
 .card.ins{{background:#fffbea;border-color:#e0a52a}}
 .card.ins li{{margin-bottom:10px}}
 .card .note{{font-size:16px;color:#999;margin:12px 0 0}}
+.frow{{display:flex;align-items:center;gap:12px;margin:8px 0}}
+.flabel{{width:170px;font-size:19px;flex-shrink:0}}
+.fbar{{flex:1;height:26px;background:#f1efe8;border-radius:6px;overflow:hidden}}
+.ffill{{height:100%;background:#2f7de1;border-radius:6px}}
+.fnum{{width:150px;font-size:18px;flex-shrink:0}}
+.fnum small{{color:#999}}
+.drop{{color:#d0442c;font-size:15px;margin-left:4px}}
 </style></head><body><div class="wrap">
 <h1>{t(lang, "report.title")}</h1>
 <p class="sub">{t(lang, "report.subtitle", start=start.strftime('%Y.%m.%d'))}</p>
@@ -169,5 +224,7 @@ td.we,th.we{{background:#fae8dd}}
   {aha_legend}
 </div>
 <div class="card"><h2>{t(lang, "report.glance")}</h2><ul>{summary}</ul></div>
+{funnel_card}
+{retention_card}
 {insight_card}
 </div></body></html>"""

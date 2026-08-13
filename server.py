@@ -99,7 +99,11 @@ def audit_tracking(code_events: list[str], csv_path: str) -> dict:
        - '코드에만 있음' → 로깅이 고장났거나 그 기능을 아무도 안 쓴다
        - '데이터에만 있음' → 죽은 코드이거나 네 스캔이 누락했다 (다시 찾아볼 것)
     4. 추가로, 코드에서 본 '중요한 기능인데 로깅이 아예 없는 곳'
-       (버튼 핸들러, 핵심 액션)을 사용자에게 보고하고 심어줄지 물어라."""
+       (버튼 핸들러, 핵심 액션)을 찾아라.
+    5. 구멍마다 처방까지 내라: 그 파일·그 함수에 맞는 로깅 코드 한 줄을
+       실제 코드 스타일에 맞춰 작성해 보여주고, "넣어드릴까요?"라고 물어라.
+       동의하면 직접 수정해라. 이벤트 이름은 기존 네이밍 규칙을 따를 것
+       (예: 기존이 snake_case면 follow_artist, camelCase면 followArtist)."""
     events = analysis.load_events(csv_path)
     data_events = {e["event"] for e in events}
     return analysis.audit_tracking(code_events, data_events)
@@ -183,14 +187,107 @@ def generate_report(
 
     labels = {ev: lbl.split("=")[-1].strip() for ev, lbl in (mark_labels or {}).items()}
     insights = report_mod.build_insights(len(users), buckets, aha_results, labels, lang=lang)
+    funnel = analysis.onboarding_funnel(users, today)
+    retention = analysis.retention_curve(users, today)
     html = report_mod.render_html_report(
         subset, start, weeks * 7, today,
         mark_events=mark_events, mark_labels=mark_labels,
-        insights=insights, lang=lang,
+        insights=insights, funnel=funnel, retention=retention, lang=lang,
     )
     with open(output_path, "w") as f:
         f.write(html)
     return f"리포트 생성 완료: {output_path} (유저 {len(subset)}명, {weeks}주)"
+
+
+@mcp.tool()
+def onboarding_funnel(csv_path: str, value_event: str) -> dict:
+    """온보딩 퍼널: 가입 → 첫 가치 경험 → 재방문 → 최근 활동, 각 계단의 인원.
+    '어디서 새는지'를 답한다. median_days_to_value가 크면 온보딩 마찰 의심."""
+    events = analysis.load_events(csv_path)
+    users = analysis.build_users(events, value_event)
+    today = max(e["date"] for e in events)
+    return analysis.onboarding_funnel(users, today)
+
+
+@mcp.tool()
+def retention_curve(csv_path: str, value_event: str, max_weeks: int = 6) -> list:
+    """주차별 리텐션: 가입 후 N주차에 가치 이벤트가 있는 유저 비율.
+    N주차를 관측 가능한 유저만 분모에 넣고, 표본 5명 미만 주차는 자른다.
+    커브가 평평해지는 지점이 '안정 리텐션'이다."""
+    events = analysis.load_events(csv_path)
+    users = analysis.build_users(events, value_event)
+    today = max(e["date"] for e in events)
+    return analysis.retention_curve(users, today, max_weeks)
+
+
+@mcp.tool()
+def load_from_db(query: str, output_csv: str = "events.csv", db_url: str | None = None) -> dict:
+    """사용자의 DB에서 직접 이벤트를 뽑아 CSV로 저장한다 (CSV 수동 추출 단계 제거).
+
+    사용법 (에이전트 지침):
+    1. 접속 주소는 환경변수 DOTPLOT_DB_URL에서 읽는 게 기본.
+       사용자에게 안내: export DOTPLOT_DB_URL="postgresql://readonly:...@host:5432/db"
+       (Supabase는 대시보드 > Settings > Database > Connection string)
+       비밀번호를 채팅에 붙여넣게 하지 말 것 — 환경변수로 받아라.
+    2. 먼저 스키마를 파악하고 (information_schema 조회), 이벤트가 될 테이블을 찾아
+       SELECT user_id, date, event 형태로 쿼리를 만들어라. 예:
+       SELECT user_id::text, created_at::date AS date, 'purchase' AS event FROM orders
+       여러 행동은 UNION ALL로 합쳐라.
+    3. 안전: SELECT만 실행된다 (그 외는 코드가 거부). 읽기 전용 계정을 권장하라.
+
+    지원: postgresql:// (Supabase/RDS/Neon 등), sqlite:///경로 (로컬 테스트용)"""
+    import os
+
+    url = db_url or os.environ.get("DOTPLOT_DB_URL")
+    if not url:
+        return {"error": "DB 주소가 없습니다. 환경변수 DOTPLOT_DB_URL을 설정하라고 안내하세요."}
+
+    q = query.strip().rstrip(";")
+    if not q.lower().startswith(("select", "with")) or ";" in q:
+        return {"error": "SELECT 쿼리만 실행할 수 있습니다."}
+
+    if url.startswith("sqlite:///"):
+        import sqlite3
+
+        conn = sqlite3.connect(url[len("sqlite:///"):])
+        try:
+            cur = conn.execute(q)
+            cols = [d[0] for d in cur.description]
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+    elif url.startswith(("postgresql://", "postgres://")):
+        try:
+            import psycopg
+        except ImportError:
+            return {"error": "psycopg가 필요합니다: uv pip install 'psycopg[binary]'"}
+        with psycopg.connect(url, options="-c default_transaction_read_only=on") as conn:
+            with conn.cursor() as cur:
+                cur.execute(q)
+                cols = [d.name for d in cur.description]
+                rows = cur.fetchall()
+    else:
+        return {"error": "지원하는 주소: postgresql://... 또는 sqlite:///..."}
+
+    required = {"user_id", "date", "event"}
+    if not required.issubset(set(cols)):
+        return {"error": f"쿼리 결과에 {sorted(required)} 컬럼이 필요합니다. 현재: {cols}"}
+
+    import csv as _csv
+
+    with open(output_csv, "w", newline="") as f:
+        w = _csv.writer(f)
+        has_platform = "platform" in cols
+        w.writerow(["user_id", "platform", "date", "event"])
+        idx = {c: i for i, c in enumerate(cols)}
+        for r in rows:
+            w.writerow([
+                r[idx["user_id"]],
+                r[idx["platform"]] if has_platform else "unknown",
+                str(r[idx["date"]])[:10],
+                r[idx["event"]],
+            ])
+    return {"saved": output_csv, "rows": len(rows), "next": "describe_events로 확인 후 분석 시작"}
 
 
 HOSTING_DIR = "hosting"  # server.py 옆의 Vercel 프로젝트 폴더

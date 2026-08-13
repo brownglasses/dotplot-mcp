@@ -63,7 +63,10 @@ SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders;
 | `describe_events` | 데이터 구조 파악 (항상 먼저 호출) |
 | `dot_plot` | 텍스트 도트 플롯 (◎ 가입일, ● 활동, 커스텀 마크) |
 | `classify_users` | 행동 패턴별 자동 분류 |
-| `find_aha_moments` | 전 이벤트 대상 "단골 전환 행동" 자동 탐색 |
+| `find_aha_moments` | 전 이벤트 대상 "단골 전환 행동" 자동 탐색 (전/후 행동 변화 기준) |
+| `onboarding_funnel` | 가입 → 첫 가치 → 재방문 → 활동 유지: 어디서 새는지 |
+| `retention_curve` | 주차별 리텐션 — 투자자가 반드시 묻는 그 숫자 |
+| `load_from_db` | Postgres/Supabase에서 이벤트 직접 추출 (CSV 단계 제거) |
 | `audit_tracking` | 코드 속 이벤트 vs 데이터 대조 (추적 구멍 발견) |
 | `generate_report` | YC 손그림 스타일 HTML 리포트 + 규칙 기반 인사이트 |
 | `publish_report` | 리포트를 무작위 주소로 호스팅, 공유 링크 발급 (Vercel) |

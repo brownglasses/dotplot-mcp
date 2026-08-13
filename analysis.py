@@ -178,3 +178,50 @@ def audit_tracking(code_events: list[str], data_events: set[str]) -> dict:
         "in_code_never_fired": sorted(code - data_events),
         "in_data_not_in_code": sorted(data_events - code),
     }
+
+
+def onboarding_funnel(users: dict[str, UserRow], today: date) -> dict:
+    """온보딩 퍼널: 새 유저가 어느 계단에서 떨어지는지.
+
+    계단 정의 (어떤 서비스든 통하는 일반형):
+      가입 → 첫 가치 이벤트 → 다른 날 재방문 → 최근 2주 내 활동
+    함께 계산: 가입~첫 가치까지 걸린 날의 중앙값 (온보딩 마찰 지표)
+    """
+    total = len(users)
+    got_value = [u for u in users.values() if u.value_days]
+    returned = [u for u in got_value if len(u.value_days) >= 2]
+    recent = [u for u in returned if any((today - d).days < 14 for d in u.value_days)]
+
+    lags = sorted((min(u.value_days) - u.signup).days for u in got_value)
+    median_lag = lags[len(lags) // 2] if lags else None
+
+    return {
+        "steps": [
+            {"key": "signup", "count": total},
+            {"key": "first_value", "count": len(got_value)},
+            {"key": "returned", "count": len(returned)},
+            {"key": "recent", "count": len(recent)},
+        ],
+        "median_days_to_value": median_lag,
+    }
+
+
+def retention_curve(users: dict[str, UserRow], today: date, max_weeks: int = 6) -> list[dict]:
+    """주차별 리텐션: 가입 후 N주차에 가치 이벤트가 있는 유저 비율.
+
+    N주차를 관측할 수 있을 만큼 오래된 유저만 분모에 넣는다 (미래를 세지 않기).
+    """
+    out = []
+    for week in range(max_weeks + 1):
+        eligible = [
+            u for u in users.values()
+            if (today - u.signup).days >= (week + 1) * 7 - 1
+        ]
+        if len(eligible) < 5:
+            break  # 표본 5명 미만 주차는 신뢰 불가 — 자르기
+        active = sum(
+            1 for u in eligible
+            if any(week * 7 <= (d - u.signup).days < (week + 1) * 7 for d in u.value_days)
+        )
+        out.append({"week": week, "eligible": len(eligible), "rate": round(active / len(eligible), 3)})
+    return out
