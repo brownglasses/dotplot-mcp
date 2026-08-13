@@ -15,3 +15,9 @@ hosting/.vercel/
 report_*.html
 .dotplot/
 dist/
+
+# 절대 커밋 금지 — 계정 복구 코드/시크릿
+복구키/
+*Recovery-Codes*
+*recovery-codes*
+.DS_Store

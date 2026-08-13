@@ -10,11 +10,21 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from html import escape
 
 from analysis import UserRow, classify_users
 from i18n import t
 
 WEEKDAY_EN = ["M", "T", "W", "TH", "F", "SA", "S"]
+
+
+def esc(value) -> str:
+    """유저 데이터(유저 ID, 이벤트 이름, 라벨)를 HTML에 넣기 전 반드시 통과시킨다.
+
+    리포트는 publish_report로 공개 URL에 올라간다 — 남의 DB에서 온 문자열이
+    그대로 마크업이 되면 안 된다.
+    """
+    return escape(str(value), quote=True)
 
 # 손글씨 폰트: 라틴은 Patrick Hand, 한글 Gaegu, 일어 Yomogi
 FONTS = {
@@ -39,7 +49,7 @@ def build_insights(
     if aha_results and aha_results[0]["lift"] >= 0.3:
         top = aha_results[0]
         out.append(t(lang, "insight.aha",
-            name=labels.get(top["event"], top["event"]),
+            name=esc(labels.get(top["event"], top["event"])),
             did=top["did_count"],
             rate_did=f"{top['did_regular_rate']:.0%}",
             rate_not=f"{top['not_regular_rate']:.0%}",
@@ -66,9 +76,14 @@ def render_html_report(
     start: date,
     days: int,
     today: date,
-    mark_events: dict[str, str] | None = None,   # {"create_playlist": "P", "share": "S"}
+    mark_events: dict[str, str] | None = None,   # {"create_playlist": "P", "share": "S"} — 기본 켜짐
     mark_labels: dict[str, str] | None = None,   # {"create_playlist": "P = created a playlist"}
+    extra_events: list[str] | None = None,       # 범례에서 딸깍으로 켤 수 있는 추가 이벤트들
     insights: list[str] | None = None,
+    aha_card: dict | None = None,  # {"event","letter","color","did_count","did_rate","not_count","not_rate","rows":[{"id","offsets":set}]}
+    history: dict | None = None,   # {"date": "...", "rows": [{key,before,after,delta,good}]}
+    funnel: dict | None = None,
+    retention: list[dict] | None = None,
     lang: str = "en",
 ) -> str:
     buckets = classify_users(users, today)
@@ -76,8 +91,17 @@ def render_html_report(
 
     mark_events = mark_events or {}
     mark_labels = mark_labels or {}
-    palette = ["#e05c26", "#7b5cd6", "#0f8a6d", "#d4537e", "#b8860b"]
-    mark_colors = {ev: palette[i % len(palette)] for i, ev in enumerate(mark_events)}
+    used = set(mark_events.values())
+    extra_marks: dict[str, str] = {}
+    for ev in extra_events or []:
+        if ev in mark_events:
+            continue
+        letter = next((ch.upper() for ch in ev if ch.isalpha() and ch.upper() not in used), "*")
+        used.add(letter)
+        extra_marks[ev] = letter
+    all_marks = {**mark_events, **extra_marks}  # 순서 = 우선순위
+    palette = ["#e05c26", "#7b5cd6", "#0f8a6d", "#d4537e", "#b8860b", "#4a6fa5", "#8a5a44", "#5e7a1e"]
+    mark_colors = {ev: palette[i % len(palette)] for i, ev in enumerate(all_marks)}
 
     dates = [start + timedelta(days=i) for i in range(days)]
     weekdays = t(lang, "weekdays").split(",") if lang != "en" else WEEKDAY_EN
@@ -92,27 +116,144 @@ def render_html_report(
         cells = []
         for d in dates:
             klass = "we" if d.weekday() >= 5 else ""
-            inner = ""
             day_specials = u.special_days.get(d, set())
+            base = ""
+            if d in u.value_days:
+                base = "ring" if d == u.signup else ("orange" if u.user_id in weekend_only else "dot")
             hit = next((ev for ev in mark_events if ev in day_specials), None)
             if hit:
-                inner = f'<span class="aha" style="background:{mark_colors[hit]}">{mark_events[hit]}</span>'
-            elif d in u.value_days:
-                dot = "ring" if d == u.signup else ("orange" if u.user_id in weekend_only else "dot")
-                inner = f'<span class="{dot}"></span>'
-            cells.append(f'<td class="{klass}">{inner}</td>')
-        body.append(f'<tr><td class="name">{u.user_id.upper()}</td>{"".join(cells)}</tr>')
+                inner = f'<span class="aha" style="background:{mark_colors[hit]}">{esc(mark_events[hit])}</span>'
+            elif base:
+                inner = f'<span class="{base}"></span>'
+            else:
+                inner = ""
+            present = [ev for ev in all_marks if ev in day_specials]
+            attrs = f' data-ev="{esc("|".join(present))}" data-base="{base}"' if present else ""
+            cells.append(f'<td class="{klass}"{attrs}>{inner}</td>')
+        body.append(f'<tr><td class="name">{esc(u.user_id.upper())}</td>{"".join(cells)}</tr>')
 
     summary = "".join(
         f'<li>{t(lang, "report.glance_item", n=len(ids), label=t(lang, f"bucket.{key}"))}</li>'
         for key, ids in sorted(buckets.items(), key=lambda x: -len(x[1]))
     )
 
-    aha_legend = "".join(
-        f'<span><span class="aha lg" style="background:{mark_colors[ev]}">{letter}</span> '
-        f'{mark_labels.get(ev, ev)}</span>'
-        for ev, letter in mark_events.items()
-    )
+    import json as _json
+
+    chips = []
+    for ev, letter in all_marks.items():
+        on = ev in mark_events
+        chips.append(
+            f'<button class="chip{"" if on else " off"}" data-toggle="{esc(ev)}">'
+            f'<span class="aha lg" style="background:{mark_colors[ev]}">{esc(letter)}</span> '
+            f'{esc(mark_labels.get(ev, ev))}</button>'
+        )
+    aha_legend = "".join(chips)
+    # <script> 안에 들어가므로 '<'를 유니코드 이스케이프해서 태그가 조기 종료되지 않게 한다
+    marks_js = _json.dumps({
+        ev: {"l": letter, "c": mark_colors[ev], "on": ev in mark_events}
+        for ev, letter in all_marks.items()
+    }).replace("<", "\\u003c")
+
+    aha_html = ""
+    if aha_card and aha_card.get("rows"):
+        SPAN = 14  # 전후 14일
+        color = aha_card["color"]
+        head_cells = []
+        for off in range(-SPAN, SPAN + 1):
+            label = t(lang, "aha.day0") if off == 0 else (f"{off:+d}" if abs(off) in (7, 14) else "")
+            head_cells.append(f'<div class="acell ahead{" azero" if off == 0 else ""}">{label}</div>')
+        rows_html = []
+        for row in aha_card["rows"]:
+            cells = []
+            for off in range(-SPAN, SPAN + 1):
+                if off == 0:
+                    cells.append(f'<div class="acell azero"><span class="aha sm" style="background:{color}">{esc(aha_card["letter"])}</span></div>')
+                elif off in row["offsets"]:
+                    cells.append('<div class="acell"><span class="adot"></span></div>')
+                else:
+                    cells.append('<div class="acell"><span class="aempty">·</span></div>')
+            rows_html.append(f'<div class="arow"><div class="aname">{esc(row["id"].upper())}</div>{"".join(cells)}</div>')
+        did_pct, not_pct = aha_card["did_rate"], aha_card["not_rate"]
+        bars = (
+            f'<div class="frow"><div class="flabel">{t(lang, "aha.did_bar", n=aha_card["did_count"])}</div>'
+            f'<div class="fbar"><div class="ffill" style="width:{max(did_pct*100,2):.0f}%;background:{color}"></div></div>'
+            f'<div class="fnum"><b>{did_pct:.0%}</b> <small>{t(lang, "aha.regulars")}</small></div></div>'
+            f'<div class="frow"><div class="flabel">{t(lang, "aha.not_bar", n=aha_card["not_count"])}</div>'
+            f'<div class="fbar"><div class="ffill" style="width:{max(not_pct*100,2):.0f}%;background:#c9c6bc"></div></div>'
+            f'<div class="fnum">{not_pct:.0%} <small>{t(lang, "aha.regulars")}</small></div></div>'
+        )
+        aha_html = (
+            f'<div class="card ahacard" style="border-color:{color}">'
+            f'<h2>{t(lang, "aha.title", name=esc(aha_card["event"]))}</h2>'
+            f'<p class="note" style="margin:0 0 10px">{t(lang, "aha.subtitle")}</p>'
+            f'<div class="agrid"><div class="arow"><div class="aname"></div>{"".join(head_cells)}</div>{"".join(rows_html)}</div>'
+            f'<div style="margin-top:16px">{bars}</div>'
+            f'<p class="note">{t(lang, "aha.footer")}</p></div>'
+        )
+
+    history_card = ""
+    if history and history.get("rows"):
+        hrows = []
+        for r in history["rows"]:
+            fmt = (lambda v: f"{v:.0%}") if "rate" in r["key"] or "retention" in r["key"] else str
+            arrow = "▲" if r["delta"] > 0 else ("▼" if r["delta"] < 0 else "—")
+            klass = "up" if r["good"] and r["delta"] != 0 else ("down" if r["delta"] != 0 else "flat")
+            delta_txt = f"{abs(r['delta']):.0%}p" if "rate" in r["key"] or "retention" in r["key"] else f"{abs(r['delta']):.0f}"
+            hrows.append(
+                f'<div class="hrow"><div class="hlabel">{t(lang, "history." + r["key"])}</div>'
+                f'<div class="hval">{fmt(r["before"])} → <b>{fmt(r["after"])}</b> '
+                f'<span class="hdelta {klass}">{arrow} {delta_txt}</span></div></div>'
+            )
+        history_card = (
+            f'<div class="card"><h2>{t(lang, "history.title", date=history["date"])}</h2>'
+            f'{"".join(hrows)}</div>'
+        )
+
+    funnel_card = ""
+    if funnel and funnel["steps"][0]["count"] > 0:
+        total = funnel["steps"][0]["count"]
+        bars = []
+        prev = total
+        for step in funnel["steps"]:
+            pct = step["count"] / total
+            drop = f'<span class="drop">-{prev - step["count"]}</span>' if step["count"] < prev else ""
+            bars.append(
+                f'<div class="frow"><div class="flabel">{t(lang, "funnel." + step["key"])}</div>'
+                f'<div class="fbar"><div class="ffill" style="width:{max(pct*100,2):.0f}%"></div></div>'
+                f'<div class="fnum">{step["count"]} <small>({pct:.0%})</small> {drop}</div></div>'
+            )
+            prev = step["count"]
+        median = ""
+        if funnel["median_days_to_value"] is not None:
+            median = f'<p class="note">{t(lang, "funnel.median_days", days=funnel["median_days_to_value"])}</p>'
+        funnel_card = (
+            f'<div class="card"><h2>{t(lang, "funnel.title")}</h2>{"".join(bars)}{median}</div>'
+        )
+
+    retention_card = ""
+    if retention and len(retention) >= 3:
+        W, H, PAD = 640, 170, 34
+        n = len(retention)
+        pts = []
+        for i, r in enumerate(retention):
+            x = PAD + i * (W - 2 * PAD) / max(n - 1, 1)
+            y = H - PAD - r["rate"] * (H - 2 * PAD)
+            pts.append((x, y, r))
+        polyline = " ".join(f"{x:.0f},{y:.0f}" for x, y, _ in pts)
+        dots = "".join(
+            f'<circle cx="{x:.0f}" cy="{y:.0f}" r="5" fill="#2f7de1"/>'
+            f'<text x="{x:.0f}" y="{y-12:.0f}" text-anchor="middle" font-size="15" fill="#222">{r["rate"]:.0%}</text>'
+            f'<text x="{x:.0f}" y="{H-10}" text-anchor="middle" font-size="14" fill="#999">{t(lang, "retention.week", n=r["week"])}</text>'
+            for x, y, r in pts
+        )
+        retention_card = (
+            f'<div class="card"><h2>{t(lang, "retention.title")}</h2>'
+            f'<p class="note" style="margin:0 0 6px">{t(lang, "retention.subtitle")}</p>'
+            f'<svg viewBox="0 0 {W} {H}" style="width:100%;max-width:{W}px">'
+            f'<line x1="{PAD}" y1="{H-PAD}" x2="{W-PAD}" y2="{H-PAD}" stroke="#ccc" stroke-width="1.5"/>'
+            f'<polyline points="{polyline}" fill="none" stroke="#2f7de1" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>'
+            f"{dots}</svg></div>"
+        )
 
     insight_card = ""
     if insights:
@@ -125,7 +266,7 @@ def render_html_report(
 
     font_url, font_family = FONTS.get(lang, FONTS["en"])
 
-    return f"""<!doctype html><html lang="{lang}"><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="{esc(lang)}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dot Plot Report</title>
 <link href="https://fonts.googleapis.com/css2?family={font_url}&display=swap" rel="stylesheet">
@@ -158,6 +299,34 @@ td.we,th.we{{background:#fae8dd}}
 .card.ins{{background:#fffbea;border-color:#e0a52a}}
 .card.ins li{{margin-bottom:10px}}
 .card .note{{font-size:16px;color:#999;margin:12px 0 0}}
+.chip{{display:flex;align-items:center;gap:8px;border:none;background:none;font:inherit;
+  font-size:19px;cursor:pointer;padding:4px 8px;border-radius:8px}}
+.chip:hover{{background:#2222220d}}
+.chip.off{{opacity:.35}}
+.chip.off .aha.lg::before{{content:"+ "}}
+.hrow{{display:flex;align-items:center;gap:12px;margin:7px 0;font-size:20px}}
+.hlabel{{width:220px;flex-shrink:0}}
+.hdelta{{font-size:17px;margin-left:6px}}
+.hdelta.up{{color:#0f8a3d}}
+.hdelta.down{{color:#d0442c}}
+.hdelta.flat{{color:#999}}
+.ahacard{{border-width:2.5px}}
+.agrid{{overflow-x:auto}}
+.arow{{display:flex;align-items:center}}
+.aname{{width:92px;flex-shrink:0;font-size:15px;color:#666;white-space:nowrap}}
+.acell{{width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0}}
+.acell.ahead{{font-size:13px;color:#999;height:20px;white-space:nowrap}}
+.acell.azero{{background:#2222220a;border-radius:4px}}
+.adot{{width:12px;height:12px;border-radius:50%;background:#2f7de1}}
+.aempty{{color:#ddd;font-size:12px}}
+.aha.sm{{width:18px;height:18px;line-height:18px;font-size:12px;border-radius:4px}}
+.frow{{display:flex;align-items:center;gap:12px;margin:8px 0}}
+.flabel{{width:170px;font-size:19px;flex-shrink:0}}
+.fbar{{flex:1;height:26px;background:#f1efe8;border-radius:6px;overflow:hidden}}
+.ffill{{height:100%;background:#2f7de1;border-radius:6px}}
+.fnum{{width:150px;font-size:18px;flex-shrink:0}}
+.fnum small{{color:#999}}
+.drop{{color:#d0442c;font-size:15px;margin-left:4px}}
 </style></head><body><div class="wrap">
 <h1>{t(lang, "report.title")}</h1>
 <p class="sub">{t(lang, "report.subtitle", start=start.strftime('%Y.%m.%d'))}</p>
@@ -168,6 +337,29 @@ td.we,th.we{{background:#fae8dd}}
   <span><span class="orange"></span> {t(lang, "report.legend.weekend_user")}</span>
   {aha_legend}
 </div>
+{aha_html}
 <div class="card"><h2>{t(lang, "report.glance")}</h2><ul>{summary}</ul></div>
+{history_card}
+{funnel_card}
+{retention_card}
 {insight_card}
-</div></body></html>"""
+<script>
+const MARKS = {marks_js};
+function repaint() {{
+  document.querySelectorAll("td[data-ev]").forEach(td => {{
+    const hit = td.dataset.ev.split("|").find(e => MARKS[e] && MARKS[e].on);
+    if (hit) {{
+      const m = MARKS[hit];
+      td.innerHTML = '<span class="aha" style="background:' + m.c + '">' + m.l + '</span>';
+    }} else {{
+      td.innerHTML = td.dataset.base ? '<span class="' + td.dataset.base + '"></span>' : '';
+    }}
+  }});
+}}
+document.querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => {{
+  const ev = b.dataset.toggle;
+  MARKS[ev].on = !MARKS[ev].on;
+  b.classList.toggle("off", !MARKS[ev].on);
+  repaint();
+}}));
+</script></div></body></html>"""

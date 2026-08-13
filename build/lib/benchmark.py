@@ -64,4 +64,12 @@ def submit(aggregates: dict, industry: str, stage: str) -> None:
 
 
 def fetch(industry: str, stage: str) -> dict:
-    return _request("/rest/v1/rpc/get_benchmark", {"p_industry": industry, "p_stage": stage})
+    """백분위 통계를 가져온다.
+
+    RPC가 TABLE/SETOF로 정의돼 있으면 PostgREST가 행 배열을 주고,
+    스칼라 JSON이면 객체를 준다 — 호출부가 항상 dict를 받도록 여기서 맞춘다.
+    """
+    res = _request("/rest/v1/rpc/get_benchmark", {"p_industry": industry, "p_stage": stage})
+    if isinstance(res, list):
+        res = res[0] if res else {}
+    return res if isinstance(res, dict) else {}

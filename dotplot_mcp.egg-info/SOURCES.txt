@@ -2,6 +2,8 @@ LICENSE
 README.md
 analysis.py
 benchmark.py
+cases.py
+history.py
 i18n.py
 pyproject.toml
 report.py

@@ -1,6 +1,6 @@
 [project]
 name = "dotplot-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "See individual users, not aggregate charts — YC's Dot Plot methodology as an MCP server"
 readme = "README.md"
 license = { text = "MIT" }
@@ -21,4 +21,6 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["server", "analysis", "report", "benchmark", "i18n"]
+# 서버가 import하는 모듈은 하나도 빠지면 안 된다 — 빠지면 설치판에서만 ImportError로 죽는다
+# (generate_report → history, find_similar_cases → cases)
+py-modules = ["server", "analysis", "report", "benchmark", "i18n", "history", "cases"]

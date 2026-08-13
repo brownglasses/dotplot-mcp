@@ -20,6 +20,19 @@ import analysis
 mcp = MCPServer("dotplot")
 
 
+def _prepare(csv_path: str, value_event: str):
+    """모든 분석 툴의 공통 앞단: 로드 → value_event 검증 → 유저 구조 만들기.
+
+    검증을 여기 한 곳에 모아두는 이유: 오타난 이벤트 이름이 통과하면
+    '이탈률 100%, 리텐션 0%'라는 그럴듯한 거짓 리포트가 나간다.
+    """
+    events = analysis.load_events(csv_path)
+    analysis.check_value_event(events, value_event)
+    users = analysis.build_users(events, value_event)
+    today = max(e["date"] for e in events)
+    return events, users, today
+
+
 @mcp.tool()
 def describe_events(csv_path: str) -> dict:
     """이벤트 CSV의 구조를 파악한다: 기간, 유저 수, 이벤트 종류별 개수.
@@ -29,12 +42,16 @@ def describe_events(csv_path: str) -> dict:
     for e in events:
         counts[e["event"]] = counts.get(e["event"], 0) + 1
     dates = [e["date"] for e in events]
+    ranked = dict(sorted(counts.items(), key=lambda x: -x[1]))
     return {
         "users": len({e["user_id"] for e in events}),
         "events_total": len(events),
-        "event_types": dict(sorted(counts.items(), key=lambda x: -x[1])),
+        "event_types": ranked,
         "date_range": [min(dates).isoformat(), max(dates).isoformat()],
-        "hint": "value_event로는 '진짜 가치를 얻은 행동'을 골라라. open_app 같은 허영 지표 금지.",
+        # value_event 후보를 코드가 미리 걸러준다 — 허영 지표는 애초에 거부되므로
+        "value_event_candidates": [e for e in ranked if not analysis.is_vanity(e)],
+        "rejected_as_vanity": [e for e in ranked if analysis.is_vanity(e)],
+        "hint": "value_event로는 '진짜 가치를 얻은 행동'을 골라라. 허영 지표는 코드가 거부한다.",
     }
 
 
@@ -49,8 +66,7 @@ def dot_plot(
     """유저 한 명 = 한 줄, 하루 = 한 칸인 도트 플롯을 그린다.
     ◎=첫 활동일, ●=핵심 가치 이벤트 발생, ·=없음.
     mark_events로 특별 이벤트에 글자를 붙일 수 있다. 예: {"create_playlist": "P"}"""
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
+    events, users, _ = _prepare(csv_path, value_event)
     start = min(e["date"] for e in events)
     return analysis.render_dot_plot(users, start, weeks * 7, mark_events, lang=lang)
 
@@ -62,9 +78,7 @@ def classify_users(csv_path: str, value_event: str, lang: str = "en") -> dict:
     lang: 사람이 읽을 라벨의 언어 (en/ko/ja)."""
     from i18n import t
 
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    _, users, today = _prepare(csv_path, value_event)
     buckets = analysis.classify_users(users, today)
     return {
         k: {"label": t(lang, f"bucket.{k}"), "count": len(v), "users": v}
@@ -77,9 +91,7 @@ def find_aha_moments(csv_path: str, value_event: str) -> dict:
     """모든 후보 이벤트를 자동으로 훑어서 아하 모먼트 후보를 찾는다.
     '이 행동을 한 유저는 단골이 될 확률이 얼마나 높아지는가(lift)'를 계산.
     주의: 상관관계일 뿐 인과가 아니다 — 반드시 실험으로 확인하라고 안내할 것."""
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    events, users, today = _prepare(csv_path, value_event)
     return {
         "candidates": analysis.find_aha_moments(events, users, value_event, today),
         "caution": "lift가 크더라도 상관관계다. 온보딩에 넣어 A/B 테스트로 검증하라.",
@@ -158,10 +170,8 @@ def generate_report(
         if bad:
             return f"번역 오류 — 다음 키를 고쳐서 다시 호출하세요: {bad}"
 
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
+    events, users, today = _prepare(csv_path, value_event)
     start = min(e["date"] for e in events)
-    today = max(e["date"] for e in events)
     subset = dict(sorted(users.items(), key=lambda kv: kv[1].signup)[:max_users])
     # 인사이트는 표에 보이는 일부가 아니라 전체 유저 기준으로 계산한다
     buckets = analysis.classify_users(users, today)
@@ -240,9 +250,7 @@ def generate_report(
 def onboarding_funnel(csv_path: str, value_event: str) -> dict:
     """온보딩 퍼널: 가입 → 첫 가치 경험 → 재방문 → 최근 활동, 각 계단의 인원.
     '어디서 새는지'를 답한다. median_days_to_value가 크면 온보딩 마찰 의심."""
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    _, users, today = _prepare(csv_path, value_event)
     return analysis.onboarding_funnel(users, today)
 
 
@@ -251,9 +259,7 @@ def retention_curve(csv_path: str, value_event: str, max_weeks: int = 6) -> list
     """주차별 리텐션: 가입 후 N주차에 가치 이벤트가 있는 유저 비율.
     N주차를 관측 가능한 유저만 분모에 넣고, 표본 5명 미만 주차는 자른다.
     커브가 평평해지는 지점이 '안정 리텐션'이다."""
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    _, users, today = _prepare(csv_path, value_event)
     return analysis.retention_curve(users, today, max_weeks)
 
 
@@ -334,9 +340,7 @@ def history_compare(csv_path: str, value_event: str) -> dict:
     처음 분석이라 비교 대상이 없으면 그렇게 알려줄 것."""
     import history as hist_mod
 
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    _, users, today = _prepare(csv_path, value_event)
     snap = hist_mod.make_snapshot(users, value_event, today)
     prev = hist_mod.previous_snapshot(snap)
     if not prev:
@@ -356,9 +360,7 @@ def find_similar_cases(csv_path: str, value_event: str, industry: str | None = N
     industry: b2c|b2b|commerce|content|social|tool|game|other (같은 업종 가산점)"""
     import cases as cases_mod
 
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    events, users, today = _prepare(csv_path, value_event)
     tags = cases_mod.diagnose_tags(users, events, value_event, today)
     matched = cases_mod.match_cases(tags, industry)
     return {
@@ -368,7 +370,43 @@ def find_similar_cases(csv_path: str, value_event: str, industry: str | None = N
     }
 
 
-HOSTING_DIR = "hosting"  # server.py 옆의 Vercel 프로젝트 폴더
+HOSTING_DIR = "hosting"  # server.py 옆의 Vercel 프로젝트 폴더 (저장소를 클론한 경우)
+
+# uvx/pip로 설치하면 hosting/이 같이 안 깔린다 — 그때 쓸 최소 Vercel 프로젝트.
+# 무작위 주소 + noindex라는 프라이버시 속성이 여기 담겨 있으므로 반드시 함께 만든다.
+_VERCEL_JSON = """{
+  "cleanUrls": false,
+  "headers": [
+    {
+      "source": "/r/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "public, max-age=60" }
+      ]
+    }
+  ]
+}
+"""
+
+
+def _hosting_dir():
+    """Vercel 프로젝트 폴더를 찾거나 만든다.
+
+    1순위: 모듈 옆 hosting/ (저장소 클론 — 랜딩페이지까지 포함된 원본)
+    2순위: ./.dotplot/hosting/ (uvx 설치 — 최소 설정을 즉석에서 생성)
+    """
+    from pathlib import Path
+
+    bundled = Path(__file__).parent / HOSTING_DIR
+    if (bundled / "vercel.json").exists():
+        return bundled
+
+    local = Path(".dotplot") / "hosting"
+    local.mkdir(parents=True, exist_ok=True)
+    vercel_json = local / "vercel.json"
+    if not vercel_json.exists():
+        vercel_json.write_text(_VERCEL_JSON)
+    return local
 
 
 @mcp.tool()
@@ -390,7 +428,7 @@ def publish_report(html_path: str) -> dict:
     if not path.exists():
         return {"error": f"파일이 없음: {path}"}
 
-    hosting = Path(__file__).parent / HOSTING_DIR
+    hosting = _hosting_dir()
     (hosting / "r").mkdir(parents=True, exist_ok=True)
 
     report_id = secrets.token_hex(6)
@@ -418,7 +456,7 @@ def publish_report(html_path: str) -> dict:
             return {"error": f"배포는 됐지만 URL 해석 실패: {r.stdout[-300:]}"}
     return {
         "공유 링크 (이걸 보내면 됨)": f"{base}/{dest}",
-        "삭제 방법": f"{HOSTING_DIR}/{dest} 파일 삭제 후 재배포",
+        "삭제 방법": f"{hosting}/{dest} 파일 삭제 후 재배포",
         "참고": "무작위 주소 + noindex — 링크를 아는 사람만 접근 가능",
     }
 
@@ -442,9 +480,7 @@ def submit_benchmark(
     if industry not in bench.INDUSTRIES or stage not in bench.STAGES:
         return {"error": f"industry는 {bench.INDUSTRIES}, stage는 {bench.STAGES} 중 하나"}
 
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    events, users, today = _prepare(csv_path, value_event)
     agg = bench.compute_aggregates(events, users, value_event, today)
     bench.submit(agg, industry, stage)
     return {"제출 완료": agg, "참고": "이 집계값 외에는 아무것도 전송되지 않았습니다."}
@@ -456,15 +492,14 @@ def compare_benchmark(csv_path: str, value_event: str, industry: str, stage: str
     표본이 10팀 미만이면 비교가 무의미하므로 그렇게 안내할 것."""
     import benchmark as bench
 
-    events = analysis.load_events(csv_path)
-    users = analysis.build_users(events, value_event)
-    today = max(e["date"] for e in events)
+    events, users, today = _prepare(csv_path, value_event)
     mine = bench.compute_aggregates(events, users, value_event, today)
     peers = bench.fetch(industry, stage)
 
     result = {"내 지표": mine, "같은 그룹 통계": peers}
-    if not peers or (peers.get("sample_size") or 0) < 10:
-        result["주의"] = f"표본이 {peers.get('sample_size', 0)}팀뿐 — 아직 비교 기준으로 삼지 마세요."
+    sample = (peers or {}).get("sample_size") or 0
+    if sample < 10:
+        result["주의"] = f"표본이 {sample}팀뿐 — 아직 비교 기준으로 삼지 마세요."
     return result
 
 

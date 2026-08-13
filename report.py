@@ -10,11 +10,21 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from html import escape
 
 from analysis import UserRow, classify_users
 from i18n import t
 
 WEEKDAY_EN = ["M", "T", "W", "TH", "F", "SA", "S"]
+
+
+def esc(value) -> str:
+    """유저 데이터(유저 ID, 이벤트 이름, 라벨)를 HTML에 넣기 전 반드시 통과시킨다.
+
+    리포트는 publish_report로 공개 URL에 올라간다 — 남의 DB에서 온 문자열이
+    그대로 마크업이 되면 안 된다.
+    """
+    return escape(str(value), quote=True)
 
 # 손글씨 폰트: 라틴은 Patrick Hand, 한글 Gaegu, 일어 Yomogi
 FONTS = {
@@ -39,7 +49,7 @@ def build_insights(
     if aha_results and aha_results[0]["lift"] >= 0.3:
         top = aha_results[0]
         out.append(t(lang, "insight.aha",
-            name=labels.get(top["event"], top["event"]),
+            name=esc(labels.get(top["event"], top["event"])),
             did=top["did_count"],
             rate_did=f"{top['did_regular_rate']:.0%}",
             rate_not=f"{top['not_regular_rate']:.0%}",
@@ -112,15 +122,15 @@ def render_html_report(
                 base = "ring" if d == u.signup else ("orange" if u.user_id in weekend_only else "dot")
             hit = next((ev for ev in mark_events if ev in day_specials), None)
             if hit:
-                inner = f'<span class="aha" style="background:{mark_colors[hit]}">{mark_events[hit]}</span>'
+                inner = f'<span class="aha" style="background:{mark_colors[hit]}">{esc(mark_events[hit])}</span>'
             elif base:
                 inner = f'<span class="{base}"></span>'
             else:
                 inner = ""
             present = [ev for ev in all_marks if ev in day_specials]
-            attrs = f' data-ev="{"|".join(present)}" data-base="{base}"' if present else ""
+            attrs = f' data-ev="{esc("|".join(present))}" data-base="{base}"' if present else ""
             cells.append(f'<td class="{klass}"{attrs}>{inner}</td>')
-        body.append(f'<tr><td class="name">{u.user_id.upper()}</td>{"".join(cells)}</tr>')
+        body.append(f'<tr><td class="name">{esc(u.user_id.upper())}</td>{"".join(cells)}</tr>')
 
     summary = "".join(
         f'<li>{t(lang, "report.glance_item", n=len(ids), label=t(lang, f"bucket.{key}"))}</li>'
@@ -133,15 +143,16 @@ def render_html_report(
     for ev, letter in all_marks.items():
         on = ev in mark_events
         chips.append(
-            f'<button class="chip{"" if on else " off"}" data-toggle="{ev}">'
-            f'<span class="aha lg" style="background:{mark_colors[ev]}">{letter}</span> '
-            f'{mark_labels.get(ev, ev)}</button>'
+            f'<button class="chip{"" if on else " off"}" data-toggle="{esc(ev)}">'
+            f'<span class="aha lg" style="background:{mark_colors[ev]}">{esc(letter)}</span> '
+            f'{esc(mark_labels.get(ev, ev))}</button>'
         )
     aha_legend = "".join(chips)
+    # <script> 안에 들어가므로 '<'를 유니코드 이스케이프해서 태그가 조기 종료되지 않게 한다
     marks_js = _json.dumps({
         ev: {"l": letter, "c": mark_colors[ev], "on": ev in mark_events}
         for ev, letter in all_marks.items()
-    })
+    }).replace("<", "\\u003c")
 
     aha_html = ""
     if aha_card and aha_card.get("rows"):
@@ -156,12 +167,12 @@ def render_html_report(
             cells = []
             for off in range(-SPAN, SPAN + 1):
                 if off == 0:
-                    cells.append(f'<div class="acell azero"><span class="aha sm" style="background:{color}">{aha_card["letter"]}</span></div>')
+                    cells.append(f'<div class="acell azero"><span class="aha sm" style="background:{color}">{esc(aha_card["letter"])}</span></div>')
                 elif off in row["offsets"]:
                     cells.append('<div class="acell"><span class="adot"></span></div>')
                 else:
                     cells.append('<div class="acell"><span class="aempty">·</span></div>')
-            rows_html.append(f'<div class="arow"><div class="aname">{row["id"].upper()}</div>{"".join(cells)}</div>')
+            rows_html.append(f'<div class="arow"><div class="aname">{esc(row["id"].upper())}</div>{"".join(cells)}</div>')
         did_pct, not_pct = aha_card["did_rate"], aha_card["not_rate"]
         bars = (
             f'<div class="frow"><div class="flabel">{t(lang, "aha.did_bar", n=aha_card["did_count"])}</div>'
@@ -173,7 +184,7 @@ def render_html_report(
         )
         aha_html = (
             f'<div class="card ahacard" style="border-color:{color}">'
-            f'<h2>{t(lang, "aha.title", name=aha_card["event"])}</h2>'
+            f'<h2>{t(lang, "aha.title", name=esc(aha_card["event"]))}</h2>'
             f'<p class="note" style="margin:0 0 10px">{t(lang, "aha.subtitle")}</p>'
             f'<div class="agrid"><div class="arow"><div class="aname"></div>{"".join(head_cells)}</div>{"".join(rows_html)}</div>'
             f'<div style="margin-top:16px">{bars}</div>'
@@ -255,7 +266,7 @@ def render_html_report(
 
     font_url, font_family = FONTS.get(lang, FONTS["en"])
 
-    return f"""<!doctype html><html lang="{lang}"><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="{esc(lang)}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dot Plot Report</title>
 <link href="https://fonts.googleapis.com/css2?family={font_url}&display=swap" rel="stylesheet">

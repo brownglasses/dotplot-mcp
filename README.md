@@ -32,7 +32,8 @@ Statistics never come from an LLM, so they are never wrong.
 
 ## Quick start
 
-Requirements: [uv](https://docs.astral.sh/uv/), and a 3-column CSV: `user_id, date, event`.
+Requirements: [uv](https://docs.astral.sh/uv/), and a 3-column CSV: `user_id, date, event`
+(a 4th `platform` column is optional and shows up as a label in the dot plot).
 
 One command — no clone, no setup:
 
@@ -126,7 +127,10 @@ hosting/       Vercel project template for report hosting
 - **LLMs don't compute** — same data, same numbers, every time
 - **Small samples withhold judgment** — groups under 5 users are excluded from aha candidates
 - **Correlation ≠ causation** — every insight ships with a "verify with an experiment" warning
-- **Vanity metrics blocked** — pick `open_app` as your value event and it tells you to pick again
+- **Vanity metrics blocked** — pick `open_app`, `page_view`, `session_start` (and friends)
+  as your value event and the code refuses, with a list of what you can pick instead
+- **Typos can't lie to you** — a value event that isn't in your data is rejected, so you
+  never get a plausible-looking "100% churned" report from a misspelling
 
 
 ## FAQ
