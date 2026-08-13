@@ -21,3 +21,11 @@ dist/
 *Recovery-Codes*
 *recovery-codes*
 .DS_Store
+
+# 빌드 산출물 — 소스 복사본이라 커밋되면 원본과 어긋난다
+build/
+*.egg-info/
+
+# 홍보 이미지·도구 작업폴더 — 코드 저장소에 있을 이유가 없음 (로컬엔 그대로 남음)
+promo/
+.lazyweb/

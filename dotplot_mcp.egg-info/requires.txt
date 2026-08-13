@@ -1,4 +1,0 @@
-mcp>=1.2.0
-
-[db]
-psycopg[binary]>=3.1
