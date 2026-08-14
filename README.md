@@ -8,9 +8,20 @@
 
 ## Install
 
+Paste this to your agent and it sets everything up:
+
+```
+Set up Dotplot (MCP + skills) — instructions are here https://dotplot-reports.vercel.app/setup.md
+```
+
+<details>
+<summary>Or do it by hand</summary>
+
 ```bash
 claude mcp add --scope user dotplot -- uvx dotplot-mcp
 ```
+
+</details>
 
 ## Use
 
@@ -20,12 +31,7 @@ Say this in any project:
 
 You get the report above. That's it.
 
-Or install the slash commands (optional):
-
-```bash
-git clone --depth 1 https://github.com/brownglasses/dotplot-mcp /tmp/dp \
-  && cp -r /tmp/dp/skills/dotplot-* ~/.claude/skills/ && rm -rf /tmp/dp
-```
+Or use the slash commands:
 
 ```
 /dotplot-analyze-product    full analysis and report

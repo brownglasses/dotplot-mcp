@@ -106,7 +106,7 @@ h1{font-size:46px;margin:0 0 4px}
 <p class="sub" id="t-sub">One row per user, one dot per active day — ask Claude, get your aha moment.</p>
 <img class="shot" id="hero" src="/dotplot-en.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
 
-<div class="install"><div class="scroll"><code id="cmd">claude mcp add --scope user dotplot -- uvx dotplot-mcp</code></div>
+<div class="install"><div class="scroll"><code id="cmd">Set up Dotplot (MCP + skills) — instructions are here https://dotplot-reports.vercel.app/setup.md</code></div>
 <button class="copy" data-copy="cmd">copy</button></div>
 <div class="trust" id="t-trust">
 <span>for Claude Code &amp; Cursor</span><span>open source (MIT)</span><span>no signup, no SDK</span>
@@ -116,7 +116,7 @@ h1{font-size:46px;margin:0 0 4px}
 <div class="how" id="t-how">
 <div class="step"><span class="n">1</span>
 <h3>Install</h3>
-<p>Paste the one line above into your terminal. No signup, no SDK.</p></div>
+<p>Paste the line above to Claude — it installs the server and the slash commands. No signup, no SDK.</p></div>
 <div class="step"><span class="n">2</span>
 <h3>Say this</h3>
 <p><span class="bubble">"Analyze my product"</span><br>Claude finds your data, runs the analysis, and hands you the report.</p></div>
@@ -197,7 +197,7 @@ const I18N = {
   sub: 'One row per user, one dot per active day — ask Claude, get your aha moment.',
   trust: ['for Claude Code &amp; Cursor','open source (MIT)','no signup, no SDK','your data never leaves your machine','stats computed by Python, not the LLM'],
 
-  steps: [['Install','Paste the one line above into your terminal. No signup, no SDK.'],
+  steps: [['Install','Paste the line above to Claude — it installs the server and the slash commands. No signup, no SDK.'],
           ['Say this','<span class="bubble">"Analyze my product"</span><br>Claude finds your data, runs the analysis, and hands you the report. No events table needed — your <code>orders</code> table already is one.']],
   getsh: 'What you get in ~3 minutes:',
   gets: ['💡 your aha moment','📉 where new users drop off','📈 weekly retention','🕐 change since last report','🌍 any language'],
@@ -214,7 +214,7 @@ const I18N = {
   sub: '유저 한 명이 한 줄, 활동한 날이 점 하나 — Claude에게 물으면 아하 모먼트를 찾아줍니다.',
   trust: ['Claude Code · Cursor 용','오픈소스 (MIT)','가입도 SDK도 없음','데이터는 내 컴퓨터를 벗어나지 않음','통계는 파이썬이 계산, LLM 아님'],
 
-  steps: [['설치','위 한 줄을 터미널에 붙여넣기. 가입도 SDK도 필요 없음.'],
+  steps: [['설치','위 한 줄을 Claude에게 붙여넣기 — 서버와 슬래시 명령어까지 알아서 깔립니다. 가입도 SDK도 필요 없음.'],
           ['이렇게 말하기','<span class="bubble">"우리 서비스 분석해줘"</span><br>Claude가 데이터를 찾고, 분석하고, 리포트를 줍니다. events 테이블 없어도 돼요 — <code>orders</code> 테이블이 이미 이벤트 로그거든요.']],
   getsh: '3분이면 받는 것:',
   gets: ['💡 우리 아하 모먼트','📉 새 유저가 새는 지점','📈 주차별 리텐션','🕐 지난번 대비 변화','🌍 모든 언어'],
@@ -231,7 +231,7 @@ const I18N = {
   sub: '1行が1ユーザー、1つの点が利用した1日 — Claudeに聞けばアハ・モーメントが見つかります。',
   trust: ['Claude Code・Cursor 用','オープンソース (MIT)','登録もSDKも不要','データは自分のPCから出ません','統計はPythonが計算、LLMではない'],
 
-  steps: [['インストール','上の1行をターミナルに貼り付けるだけ。登録もSDKも不要。'],
+  steps: [['インストール','上の1行をClaudeに貼り付けるだけ。サーバーもスラッシュコマンドも自動で入ります。登録もSDKも不要。'],
           ['こう言うだけ','<span class="bubble">「うちのプロダクトを分析して」</span><br>Claudeがデータを見つけ、分析し、レポートを返します。eventsテーブルは不要 — <code>orders</code>テーブルがすでにイベントログです。']],
   getsh: '約3分で分かること:',
   gets: ['💡 アハ・モーメント','📉 新規ユーザーの離脱地点','📈 週次リテンション','🕐 前回からの変化','🌍 どの言語でも'],

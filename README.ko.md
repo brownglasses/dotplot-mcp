@@ -8,9 +8,20 @@
 
 ## 설치
 
+이 한 줄을 에이전트에게 붙여넣으면 알아서 다 설치합니다:
+
+```
+Dotplot (MCP + 스킬) 설치해줘 — 안내는 여기에 있어 https://dotplot-reports.vercel.app/setup.md
+```
+
+<details>
+<summary>직접 하려면</summary>
+
 ```bash
 claude mcp add --scope user dotplot -- uvx dotplot-mcp
 ```
+
+</details>
 
 ## 사용
 
@@ -20,12 +31,7 @@ claude mcp add --scope user dotplot -- uvx dotplot-mcp
 
 위 리포트가 나옵니다. 그게 전부예요.
 
-슬래시 명령어로 쓰고 싶으면 (선택):
-
-```bash
-git clone --depth 1 https://github.com/brownglasses/dotplot-mcp /tmp/dp \
-  && cp -r /tmp/dp/skills/dotplot-* ~/.claude/skills/ && rm -rf /tmp/dp
-```
+슬래시 명령어로도 됩니다:
 
 ```
 /dotplot-analyze-product    전체 분석 + 리포트
