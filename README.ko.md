@@ -6,68 +6,23 @@
 
 ![report](.github/report_ko.png)
 
-DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 아무도 남지 않아도요.
-이 MCP 서버는 YC 파트너 David Lieb의
-[Dot Plot 방법론](https://www.youtube.com/watch?v=e5-6rEwzxLs)을 구현합니다:
-유저가 수백 명이 되기 전까지, 창업자에게 필요한 최고의 대시보드는
-**유저 한 명 = 한 줄, 하루 = 한 칸**인 표 하나입니다.
-
-**설계 원칙: 숫자는 코드가 계산하고, AI는 해석만 합니다.** 그래서 통계가 틀리지 않습니다.
-
-## 뭘 해주나
-
-```
-① 추적 점검   코드에 심은 이벤트 vs 실제 찍힌 데이터 대조 → 고장·구멍 발견
-② 도트 플롯   유저별 활동을 점으로 — 이탈, 주말러, 찐팬이 한눈에
-③ 패턴 분류   한번쓰고떠남 / 주말에만 / 거의매일 자동 분류
-④ 아하 탐색   모든 행동을 훑어서 "단골로 바꾸는 행동" 후보 발견
-⑤ 리포트     손그림 스타일 HTML + 쉬운 말 인사이트 → 링크로 공유
-⑥ 벤치마크   (옵트인) 같은 업종·단계 팀들과 내 지표 비교
-```
-
-### 30초 데모
-
-![demo](.github/demo.gif)
-
-## 시작하기
-
-필요한 것: [uv](https://docs.astral.sh/uv/), 그리고 세 칸짜리 데이터 —
-누가, 언제, 뭘 했나 (`user_id, date, event`).
-
-**쓰던 DB 도구가 내보낸 파일을 그대로 넣으면 됩니다.** CSV·TSV·JSON·JSONL을
-바로 읽고, 컬럼 이름은 알아서 맞추고(`uid`, `customer_id`, `created_at`,
-`event_name` 다 됩니다), 타임스탬프는 날짜로 잘라냅니다:
+## 설치
 
 ```bash
-psql -c "..." --csv > events.csv           # Postgres
-mysql --json -e "..." > events.json        # MySQL
-mongoexport --collection=orders ...        # MongoDB
-bq query --format=json "..." > events.json # BigQuery
+claude mcp add --scope user dotplot -- uvx dotplot-mcp
 ```
 
-"어떤 DB를 지원하나요"의 답이 이겁니다 — **이미 쿼리할 수 있는 DB 전부.**
-데이터는 DB → 파일 → 리포트로 가고, 중간에 AI를 거치지 않습니다.
+## 사용
 
-명령 한 줄 — 클론도 설정도 필요 없습니다:
+아무 프로젝트에서나 이렇게 말하면 됩니다:
 
-```bash
-claude mcp add dotplot -- uvx dotplot-mcp
-```
+> **"우리 서비스 분석해줘"**
 
-데이터가 아직 없다면 클론해서 샘플로 체험:
+위 리포트가 나옵니다. 그게 전부예요.
 
-```bash
-uv run sample_data.py   # events.csv 생성 (가짜 유저 40명)
-uv run harness.py       # 전체 파이프라인을 눈으로 확인
-```
-
-그다음 한 마디만 하면 됩니다:
-
-> "우리 서비스 분석해줘"
-
-이게 전부입니다. Claude가 데이터를 찾고, "이 행동을 했으면 가치를 얻은 것"에
-해당하는 이벤트를 고르고, 위 리포트를 만들어 줍니다. DB에 events 테이블이
-없어도 됩니다 — 초기 제품은 대부분 없고, 이미 있는 테이블로 만들어 씁니다:
+Claude가 알아서 데이터를 찾고, "이 행동을 했으면 가치를 얻은 것"에 해당하는
+이벤트를 고르고, 리포트를 만듭니다. **events 테이블 없어도 됩니다** —
+`orders` 테이블이 이미 이벤트 로그거든요:
 
 ```sql
 SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders
@@ -75,104 +30,40 @@ UNION ALL
 SELECT user_id, added_at::date, 'add_to_wishlist' FROM wishlist_items
 ```
 
-`orders` 테이블이 곧 이벤트 로그입니다. 이름만 그렇지 않을 뿐이죠.
-SDK도, 추적 코드도, 가입도 필요 없습니다.
+추적을 아직 안 하고 있다면 **"추적 안 되고 있는 거 심어줘"** 라고 하세요.
+Claude가 코드를 읽고, 빠진 로깅을 짜 넣고, 며칠 뒤에 다시 오면 되는지 알려줍니다.
 
-## 툴 목록
+<details>
+<summary>아직 분석할 서비스가 없다면 샘플로 체험</summary>
 
-**`analyze` 하나가 제품 전체입니다.** 아래 툴들은 `analyze`가 이미 쓰고 있는
-부품이에요 — "리텐션만 보여줘" 같은 구체적 요청일 때만 직접 부르세요.
-
-| 툴 | 하는 일 |
-|---|---|
-| **`analyze`** | **데이터 넣으면 리포트까지. 여기서 시작.** |
-| `describe_events` | 데이터 구조 파악 |
-| `dot_plot` | 텍스트 도트 플롯 (◎ 가입일, ● 활동, 커스텀 마크) |
-| `classify_users` | 행동 패턴별 자동 분류 |
-| `find_aha_moments` | 전 이벤트 대상 "단골 전환 행동" 자동 탐색 (전/후 행동 변화 기준) |
-| `onboarding_funnel` | 가입 → 첫 가치 → 재방문 → 활동 유지: 어디서 새는지 |
-| `retention_curve` | 주차별 리텐션 — 투자자가 반드시 묻는 그 숫자 |
-| `load_from_db` | Postgres/Supabase에서 이벤트 직접 추출 (CSV 단계 제거) |
-| `history_compare` | "지난번 대비" 변화 — 리포트 만들 때마다 스냅샷이 로컬에 자동 저장 |
-| `find_similar_cases` | 내 진단과 비슷한 실제 개선 사례 매칭 (Facebook 친구7명, Slack 메시지2천개...) |
-| `audit_tracking` | 코드 속 이벤트 vs 데이터 대조 (추적 구멍 발견) |
-| `generate_report` | YC 손그림 스타일 HTML 리포트 + 규칙 기반 인사이트 |
-| `publish_report` | 리포트를 무작위 주소로 호스팅, 공유 링크 발급 (Vercel) |
-| `submit_benchmark` | 익명 벤치마크에 집계값 제출 (명시적 동의 필수) |
-| `compare_benchmark` | 같은 업종·단계 팀들의 백분위와 내 지표 비교 |
-
-## 다국어
-
-리포트는 **모든 언어**로 나옵니다. 영어·한국어·일본어는 내장이고,
-그 외 언어는 에이전트가 즉석에서 번역해 리포트에 넣습니다
-(`get_report_strings` → 번역 → `custom_strings`). 이때 코드가 숫자 자리표시자가
-번역에서 살아남았는지 검증하므로 통계는 정확하게 유지됩니다.
-내 언어를 내장하고 싶다면 [i18n.py](i18n.py) 사전 하나면 됩니다. PR 환영.
-
-같은 리포트를 [English](.github/report_en.png) · [한국어](.github/report_ko.png) · [日本語](.github/report_ja.png)로 볼 수 있어요.
-
-## 익명 벤치마크 — 뭐가 전송되나
-
-**옵트인입니다.** 동의 없이는 아무것도 전송되지 않습니다.
-
-동의하면 전송되는 것 — 아래 집계값 5개가 **전부**입니다:
-
-```json
-{
-  "users_count": 40,
-  "churned_rate": 0.30,
-  "weekend_rate": 0.175,
-  "regular_rate": 0.275,
-  "aha_lift": 0.82
-}
+```bash
+git clone https://github.com/brownglasses/dotplot-mcp && cd dotplot-mcp
+uv run sample_data.py   # 패턴을 심어둔 가짜 유저 40명 생성
+uv run harness.py       # 전체 파이프라인을 눈으로 확인
 ```
 
-전송되지 **않는** 것: 유저 ID, 이벤트 로그, 날짜, 서비스 이름, IP 기반 식별자.
+</details>
 
-백엔드는 INSERT 전용(RLS)이라 제출된 데이터를 공개 키로 다시 읽을 방법이 없고,
-비교 조회는 백분위 통계만 반환하는 함수를 통해서만 가능합니다.
-직접 확인: [benchmark.py](benchmark.py) (60줄).
+## 왜 만들었나
 
-## 구조
+DAU/MAU 그래프는 신규 유저가 들어오는 한 "우상향"합니다 — 아무도 남지 않아도요.
+유저가 수백 명이 되기 전까지 창업자에게 가장 유용한 대시보드는
+[YC의 도트 플롯](https://www.youtube.com/watch?v=e5-6rEwzxLs)(David Lieb)입니다.
+**유저 한 명 = 한 줄, 하루 = 한 칸.**
 
-```
-analysis.py    모든 계산 — MCP를 모르는 순수 파이썬 (여기가 두뇌)
-server.py      계산을 MCP 툴로 노출하는 얇은 껍데기
-report.py      HTML 리포트 렌더링 + 규칙 기반 인사이트 문장
-benchmark.py   익명 벤치마크 클라이언트
-i18n.py        사용자 눈에 닿는 모든 문장 (언어별)
-harness.py     에이전트 없이 전체 흐름을 돌려보는 시험대
-sample_data.py 정답을 심어둔 샘플 데이터 (도구 검증용)
-hosting/       리포트 호스팅용 Vercel 프로젝트 템플릿
-```
+숫자가 거짓말하지 않도록 네 가지 규칙을 지킵니다:
 
-## 왜 이렇게 만들었나
+- **계산은 코드, 해석만 AI** — 같은 데이터면 언제나 같은 숫자
+- **표본이 작으면 판단 보류** — 5명 미만 그룹에 대해서는 아무 말도 안 함
+- **상관 ≠ 인과** — 모든 발견에 "믿기 전에 실험으로 확인하라" 경고 동봉
+- **허영 지표 거부** — `open_app`을 핵심 가치로 고르면 코드가 거절
 
-- **LLM은 계산하지 않는다** — 같은 데이터면 언제나 같은 숫자
-- **표본이 작으면 판단 보류** — 5명 미만 그룹은 아하 후보에서 제외
-- **상관 ≠ 인과** — 모든 인사이트에 "실험으로 검증하라" 경고 내장
-- **허영 지표 차단** — `open_app`, `page_view`, `session_start` 같은 이벤트를 핵심 가치로
-  고르면 코드가 거부하고, 대신 고를 수 있는 이벤트 목록을 알려준다
-- **오타가 거짓말을 못 한다** — 데이터에 없는 이벤트를 고르면 즉시 거부. 오타 하나로
-  '이탈률 100%'짜리 그럴듯한 가짜 리포트가 나가는 일이 없다
+리포트는 사용자의 언어로 나옵니다 (영어·한국어·일본어 내장, 그 외 언어는
+즉석 번역하되 숫자가 그대로인지 코드가 검증).
 
+## 더 보기
 
-## 자주 묻는 질문
-
-**초기 제품의 유저 플로우/행동 분석, 어떻게 하나요?**
-유저가 1,000명 미만이면 무거운 분석 툴은 건너뛰세요. CSV 3칸(user_id, date, event)을
-뽑거나 Postgres를 연결하고, Claude에게 도트 플롯을 그려달라고 하면 됩니다.
-이탈·주말 유저·습관 변화가 몇 초 만에 보입니다. 이 MCP가 하는 일이 정확히 그것입니다.
-
-**우리 제품의 아하 모먼트는 어떻게 찾나요?**
-`find_aha_moments`가 모든 이벤트를 훑어서, 유저별로 그 행동 전/후 활동률 변화를
-계산합니다. 스크롤 같은 잡음 이벤트에 속지 않는 방식입니다.
-
-**Mixpanel / Amplitude / PostHog와 뭐가 다른가요?**
-그 툴들은 수천 명 이상의 집계 차트용입니다. 이건 첫 100명을 위한 도구입니다 —
-유저 개인 단위, 코딩 에이전트 안에서 로컬 실행, SDK·가입 불필요, 통계는 코드가 계산.
-서비스가 크면 그때 큰 툴로 졸업하세요.
-
-## License
+- [툴별 설명과 익명 벤치마크](docs/tools.md)
+- [어떻게 만들었나](docs/architecture.md)
 
 MIT

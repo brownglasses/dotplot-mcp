@@ -106,12 +106,22 @@ h1{font-size:46px;margin:0 0 4px}
 <p class="sub" id="t-sub">One row per user, one dot per active day — ask Claude, get your aha moment.</p>
 <img class="shot" id="hero" src="/dotplot-en.png" alt="Dot plot: one row per user, one dot per active day. User 014 becomes daily after the C event.">
 
-<div class="install"><div class="scroll"><code id="cmd">claude mcp add dotplot -- uvx dotplot-mcp</code></div>
+<div class="install"><div class="scroll"><code id="cmd">claude mcp add --scope user dotplot -- uvx dotplot-mcp</code></div>
 <button class="copy" data-copy="cmd">copy</button></div>
 <div class="trust" id="t-trust">
 <span>for Claude Code &amp; Cursor</span><span>open source (MIT)</span><span>no signup, no SDK</span>
 <span>your data never leaves your machine</span><span>stats computed by Python, not the LLM</span>
 </div>
+
+<div class="how" id="t-how">
+<div class="step"><span class="n">1</span>
+<h3>Install</h3>
+<p>Paste the one line above into your terminal. No signup, no SDK.</p></div>
+<div class="step"><span class="n">2</span>
+<h3>Say this</h3>
+<p><span class="bubble">"Analyze my product"</span><br>Claude finds your data, runs the analysis, and hands you the report.</p></div>
+</div>
+
 
 <div class="demo">
 <h2 id="t-demoh">Don't trust it? Run it here first.</h2>
@@ -137,18 +147,6 @@ u02,2026-07-01,purchase
 </div></details>
 <div class="out" id="out"></div>
 <div id="err" class="err"></div>
-</div>
-
-<div class="how" id="t-how">
-<div class="step"><span class="n">1</span>
-<h3>Install</h3>
-<p>Paste the one line above into your terminal. No signup, no SDK.</p></div>
-<div class="step"><span class="n">2</span>
-<h3>Point at your data</h3>
-<p>A 3-column CSV (<code>user_id, date, event</code>) — or connect Postgres/Supabase directly.</p></div>
-<div class="step"><span class="n">3</span>
-<h3>Just ask</h3>
-<p><span class="bubble">"find my aha moment"</span><br>Claude runs the analysis and hands you a shareable report link.</p></div>
 </div>
 <p style="font-size:18px;color:#8a877e;margin:0 0 10px" id="t-getsh">What you get in ~3 minutes:</p>
 <div class="gets" id="t-gets">
@@ -706,8 +704,7 @@ const I18N = {
   sqlp: 'Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:',
   sqlnote: 'Once installed, you skip this step — Dotplot reads your database directly, on your machine.',
   steps: [['Install','Paste the one line above into your terminal. No signup, no SDK.'],
-          ['Point at your data','A 3-column CSV (<code>user_id, date, event</code>) — or connect Postgres/Supabase directly.'],
-          ['Just ask','<span class="bubble">"find my aha moment"</span><br>Claude runs the analysis and hands you a shareable report link.']],
+          ['Say this','<span class="bubble">"Analyze my product"</span><br>Claude finds your data, runs the analysis, and hands you the report. No events table needed — your <code>orders</code> table already is one.']],
   getsh: 'What you get in ~3 minutes:',
   gets: ['💡 your aha moment','📉 where new users drop off','📈 weekly retention','🕐 change since last report','🌍 any language'],
   sample: 'Sample report',
@@ -732,8 +729,7 @@ const I18N = {
   sqlp: '이걸 실행하고 결과를 위에 붙여넣으세요. <code>orders</code> / <code>created_at</code>은 본인 테이블로 바꾸면 됩니다:',
   sqlnote: '설치하고 나면 이 단계는 사라집니다 — Dotplot이 내 컴퓨터에서 DB를 직접 읽으니까요.',
   steps: [['설치','위 한 줄을 터미널에 붙여넣기. 가입도 SDK도 필요 없음.'],
-          ['데이터 가리키기','3칸짜리 CSV (<code>user_id, date, event</code>) — 또는 Postgres/Supabase 직접 연결.'],
-          ['그냥 말하기','<span class="bubble">"우리 아하 모먼트 찾아줘"</span><br>Claude가 분석하고 공유 가능한 리포트 링크를 줍니다.']],
+          ['이렇게 말하기','<span class="bubble">"우리 서비스 분석해줘"</span><br>Claude가 데이터를 찾고, 분석하고, 리포트를 줍니다. events 테이블 없어도 돼요 — <code>orders</code> 테이블이 이미 이벤트 로그거든요.']],
   getsh: '3분이면 받는 것:',
   gets: ['💡 우리 아하 모먼트','📉 새 유저가 새는 지점','📈 주차별 리텐션','🕐 지난번 대비 변화','🌍 모든 언어'],
   sample: '샘플 리포트',
@@ -758,8 +754,7 @@ const I18N = {
   sqlp: 'これを実行して結果を上に貼り付けてください。<code>orders</code> / <code>created_at</code> はご自分のテーブルに:',
   sqlnote: 'インストール後はこの手順は不要 — Dotplotが自分のPC上でDBを直接読みます。',
   steps: [['インストール','上の1行をターミナルに貼り付けるだけ。登録もSDKも不要。'],
-          ['データを指定','3列のCSV (<code>user_id, date, event</code>) — または Postgres/Supabase に直接接続。'],
-          ['聞くだけ','<span class="bubble">「アハ・モーメントを探して」</span><br>Claudeが分析し、共有できるレポートのリンクを返します。']],
+          ['こう言うだけ','<span class="bubble">「うちのプロダクトを分析して」</span><br>Claudeがデータを見つけ、分析し、レポートを返します。eventsテーブルは不要 — <code>orders</code>テーブルがすでにイベントログです。']],
   getsh: '約3分で分かること:',
   gets: ['💡 アハ・モーメント','📉 新規ユーザーの離脱地点','📈 週次リテンション','🕐 前回からの変化','🌍 どの言語でも'],
   sample: 'サンプルレポート',

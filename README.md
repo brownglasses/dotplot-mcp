@@ -6,71 +6,22 @@
 
 ![report](.github/report_en.png)
 
-DAU/MAU charts trend "up and to the right" as long as new users arrive — even
-when nobody sticks. This MCP server implements
-[YC's Dot Plot methodology](https://www.youtube.com/watch?v=e5-6rEwzxLs)
-(David Lieb): until you have hundreds of users, the most informative dashboard
-is **one row per user, one cell per day**.
-
-**Design principle: code computes the numbers, AI only interprets them.**
-Statistics never come from an LLM, so they are never wrong.
-
-## What it does
-
-```
-1. Tracking audit   compare events in your code vs events in your data → find broken/missing tracking
-2. Dot plot         every user's activity as dots — churn, weekend-only, core fans at a glance
-3. Classification   used-once / weekend-only / almost-daily, automatically
-4. Aha moments      scan every action for "what turns users into regulars"
-5. Report           hand-drawn style HTML + plain-language insights → share as a link
-6. Benchmark        (opt-in) compare your metrics with teams at your industry & stage
-```
-
-### 30-second demo
-
-![demo](.github/demo.gif)
-
-## Quick start
-
-Requirements: [uv](https://docs.astral.sh/uv/), and three columns of data:
-who, when, what — `user_id, date, event`.
-
-Whatever your database tool already exports is fine. CSV, TSV, JSON, and JSONL
-are read directly, columns are matched by name (`uid`, `customer_id`,
-`created_at`, `event_name`, … all work), and timestamps are cut down to days:
+## Install
 
 ```bash
-psql -c "..." --csv > events.csv          # Postgres
-mysql --json -e "..." > events.json       # MySQL
-mongoexport --collection=orders ...       # MongoDB
-bq query --format=json "..." > events.json # BigQuery
+claude mcp add --scope user dotplot -- uvx dotplot-mcp
 ```
 
-That is the whole "which databases are supported" answer: the ones you can
-already query. The data goes from your database to a file to the report — it
-never passes through the model.
+## Use
 
-One command — no clone, no setup:
+Say this in any project:
 
-```bash
-claude mcp add dotplot -- uvx dotplot-mcp
-```
+> **"Analyze my product"**
 
-No data yet? Clone and try the sample:
+You get the report above. That's it.
 
-```bash
-uv run sample_data.py   # generates events.csv (40 fake users)
-uv run harness.py       # watch the whole pipeline run
-```
-
-Then say one thing:
-
-> "Analyze my product"
-
-That's the whole interface. Claude finds your data, picks the action that means
-"this user got value", and hands back the report above. If your database has no
-events table — most early products don't — it builds the events out of the
-tables you already have:
+Claude finds your data, picks the action that means "this user got value", and
+writes the report. No events table needed — your `orders` table already is one:
 
 ```sql
 SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders
@@ -78,110 +29,41 @@ UNION ALL
 SELECT user_id, added_at::date, 'add_to_wishlist' FROM wishlist_items
 ```
 
-Your `orders` table *is* an event log. It just isn't named like one. No SDK, no
-tracking code, no signup.
+Nothing tracked yet? Say **"add the tracking I'm missing"** and Claude reads your
+code, writes the logging that's absent, and tells you when to come back.
 
-## Tools
+<details>
+<summary>No product to analyze yet? Try the sample</summary>
 
-**`analyze` is the whole product.** Everything below it is a part that `analyze`
-already uses — reach for one only when you want a single number on its own
-("just show me retention").
-
-| Tool | What it does |
-|---|---|
-| **`analyze`** | **Data in, finished report out. Start here.** |
-| `describe_events` | Understand the data shape |
-| `dot_plot` | Text dot plot (◎ signup day, ● active day, custom marks) |
-| `classify_users` | Automatic behavioral pattern classification |
-| `find_aha_moments` | Scan all events for "regular-converting" actions (before/after behavior change) |
-| `onboarding_funnel` | Signup → first value → return → still active: where users leak |
-| `retention_curve` | Weekly retention — the number investors always ask |
-| `load_from_db` | Pull events straight from Postgres/Supabase (no CSV export step) |
-| `history_compare` | "Since last report" deltas — snapshots auto-saved locally on every report |
-| `find_similar_cases` | Match your diagnosis to real documented cases (Facebook's 7-friends, Slack's 2k messages...) |
-| `audit_tracking` | Compare events in code vs data (find tracking gaps) |
-| `generate_report` | Hand-drawn style HTML report + rule-based insights |
-| `publish_report` | Host the report at a random URL, get a share link (Vercel) |
-| `submit_benchmark` | Submit aggregates to the anonymous benchmark (explicit consent required) |
-| `compare_benchmark` | Compare your metrics with percentiles of similar teams |
-
-## Languages
-
-Reports work in **any language**. English, 한국어, and 日本語 are built in;
-for every other language the agent translates the report strings on the fly
-(`get_report_strings` → translate → `custom_strings`), while the code validates
-that number placeholders survive translation — so statistics stay exact.
-Want your language built in? It's one dictionary in [i18n.py](i18n.py). PRs welcome.
-
-See the same report in [English](.github/report_en.png) · [한국어](.github/report_ko.png) · [日本語](.github/report_ja.png).
-
-## Anonymous benchmark — what gets sent
-
-**Opt-in only.** Nothing is ever sent without explicit consent.
-
-If you consent, these five aggregates are sent — and this is **everything**:
-
-```json
-{
-  "users_count": 40,
-  "churned_rate": 0.30,
-  "weekend_rate": 0.175,
-  "regular_rate": 0.275,
-  "aha_lift": 0.82
-}
+```bash
+git clone https://github.com/brownglasses/dotplot-mcp && cd dotplot-mcp
+uv run sample_data.py   # 40 fake users with a pattern planted in them
+uv run harness.py       # watch the whole pipeline run
 ```
 
-Never sent: user IDs, event logs, dates, your service's name, IP-based identifiers.
+</details>
 
-The backend is INSERT-only (row-level security) — submitted data cannot be read
-back with the public key, and comparisons go through a function that returns
-percentile statistics only. Verify yourself: [benchmark.py](benchmark.py) (~60 lines).
+## Why this exists
 
-## Architecture
+DAU/MAU charts go "up and to the right" as long as new users arrive — even when
+nobody stays. Until you have hundreds of users, the most informative dashboard is
+[YC's dot plot](https://www.youtube.com/watch?v=e5-6rEwzxLs) (David Lieb):
+**one row per user, one cell per day.**
 
-```
-analysis.py    all computation — pure Python, knows nothing about MCP (the brain)
-server.py      thin shell exposing computations as MCP tools
-report.py      HTML report rendering + rule-based insight sentences
-benchmark.py   anonymous benchmark client
-i18n.py        every user-facing sentence, per language
-harness.py     run the whole pipeline end-to-end without an agent
-sample_data.py sample data with planted patterns (for verifying the tool)
-hosting/       Vercel project template for report hosting
-```
+Four rules keep it honest:
 
-## Why it's built this way
+- **Code computes, AI only interprets** — same data, same numbers, every time
+- **Small samples withhold judgment** — under 5 users in a group, it says nothing
+- **Correlation isn't cause** — every finding ships with "test this before you believe it"
+- **Vanity metrics are refused** — pick `open_app` as your value event and the code says no
 
-- **LLMs don't compute** — same data, same numbers, every time
-- **Small samples withhold judgment** — groups under 5 users are excluded from aha candidates
-- **Correlation ≠ causation** — every insight ships with a "verify with an experiment" warning
-- **Vanity metrics blocked** — pick `open_app`, `page_view`, `session_start` (and friends)
-  as your value event and the code refuses, with a list of what you can pick instead
-- **Typos can't lie to you** — a value event that isn't in your data is rejected, so you
-  never get a plausible-looking "100% churned" report from a misspelling
+Reports come out in your language (English, 한국어, 日本語 built in; anything else
+translated on the fly with the numbers verified intact).
 
+## More
 
-## FAQ
-
-**How do I analyze user flows / user behavior for my early-stage product?**
-If you have under ~1,000 users, skip the heavyweight analytics suites. Export a
-3-column CSV (`user_id, date, event`) or connect your Postgres, then ask Claude
-to draw a dot plot — one row per user, one dot per active day. Churn, weekend-only
-users, and habit changes become visible in seconds. That's exactly what this MCP does.
-
-**How do I find my product's aha moment?**
-`find_aha_moments` scans every event and measures, per user, how activity changed
-before vs after first doing that action — so frequency noise (scrolling, popups)
-doesn't fool the ranking. The report aligns all users on "day zero" so you can
-see the habit change with your own eyes.
-
-**How is this different from Mixpanel / Amplitude / PostHog?**
-Those are built for thousands of users and aggregate charts. This is built for
-your first hundred: per-user visibility, runs locally inside your coding agent,
-no SDK, no signup, stats computed by code (never by the LLM). Graduate to the
-big tools later — this is the stage before them.
-
-## License
+- [What each tool does, and the anonymous benchmark](docs/tools.md)
+- [How it's built](docs/architecture.md)
 
 MIT
 

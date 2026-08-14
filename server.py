@@ -33,6 +33,46 @@ def _prepare(csv_path: str, value_event: str):
     return events, users, today
 
 
+# 슬래시 명령어 — 클로드 코드에서 "/" 를 누르면 목록에 뜬다.
+# 툴은 에이전트가 고르는 것이고, 이건 사용자가 직접 고르는 입구다.
+# 그래서 문장은 사용자가 타이핑했을 법한 말투로 쓴다.
+
+
+@mcp.prompt(title="Analyze my product")
+def analyze_product() -> str:
+    """Full analysis: dot plot, aha moment, funnel, retention, report."""
+    return (
+        "Analyze my product with dotplot. Find the event data yourself — check for "
+        "a database connection, and if there is no events table, build events out of "
+        "the ordinary tables (orders, sessions, posts) with load_from_db. Then call "
+        "analyze, open the report, and tell me the headline in plain language. If "
+        "nothing is tracked yet, say so and show me what to add instead."
+    )
+
+
+@mcp.prompt(title="Add the tracking I'm missing")
+def add_tracking() -> str:
+    """Find the core actions that aren't logged, and write the logging for them."""
+    return (
+        "Use dotplot's audit_tracking to find what my product doesn't record. Search "
+        "the code for existing logging calls, pass them in, and look for the core "
+        "actions that have no logging at all. For each hole, write the one line that "
+        "belongs in that file in my code's style, show it to me, and add it if I "
+        "agree. Then tell me how many days to wait before analyzing."
+    )
+
+
+@mcp.prompt(title="What changed since last time")
+def whats_changed() -> str:
+    """Compare today's numbers with the previous report."""
+    return (
+        "Run the dotplot analysis again on the same data as last time and use "
+        "history_compare to show me what moved since the previous report. Only "
+        "compare against snapshots of this same product, and if this is the first "
+        "run, say so rather than implying nothing changed."
+    )
+
+
 @mcp.tool()
 def analyze(
     csv_path: str | None = None,
