@@ -299,3 +299,50 @@ def test_unmatched_columns_say_what_to_do(tmp_path):
     with pytest.raises(analysis.EventFileError) as e:
         analysis.load_events(path)
     assert "a" in str(e.value) and "AS date" in str(e.value)
+
+
+# ── 추적이 없는 사람도 들어올 수 있는가 ──────────────────────────────────
+
+def test_audit_tracking_works_without_any_data():
+    """추적을 안 해서 온 사람인데 데이터를 요구하면 안 된다 — 이 툴이 제일
+    필요한 상황이 바로 데이터가 없는 상황이다."""
+    import server
+    r = server.audit_tracking(["open_app", "page_view"])
+    assert r["can_measure_value"] is False
+    assert r["vanity_in_code"] == ["open_app", "page_view"]
+    assert r["come_back_in_days"]["first_signal"] == analysis.CHURN_JUDGEMENT_DAYS
+    assert r["come_back_in_days"]["full_picture"] == analysis.REGULAR_JUDGEMENT_DAYS
+
+
+def test_audit_tracking_still_compares_when_data_exists(tmp_path):
+    import server
+    path = write_csv(tmp_path / "e.csv", events_for(6, 10), ["user_id", "date", "event"])
+    r = server.audit_tracking(["purchase", "share"], path)
+    assert r["tracked_ok"] == ["purchase"]
+    assert r["in_code_never_fired"] == ["share"]
+
+
+def test_come_back_days_come_from_the_judgement_thresholds():
+    """'며칠 뒤 오세요'가 지어낸 숫자면 안 된다. 유저를 그만큼 지켜봐야
+    이탈·단골을 판정할 수 있다는 코드의 기준에서 나와야 한다."""
+    plan = analysis.tracking_plan(["purchase"])
+    assert plan["come_back_in_days"] == {
+        "first_signal": analysis.CHURN_JUDGEMENT_DAYS,
+        "full_picture": analysis.REGULAR_JUDGEMENT_DAYS,
+    }
+    assert plan["can_measure_value"] is True
+
+
+def test_analyze_sends_a_trackless_project_somewhere_reachable(tmp_path):
+    """막다른 길로 안내하면 안 된다 — analyze가 가리키는 곳이 실제로 열려 있어야."""
+    import server
+    for guidance in (
+        " ".join(server.analyze()["what_to_do"]),
+        server.analyze(
+            write_csv(tmp_path / "e.csv", events_for(9, 20, event="page_view"),
+                      ["user_id", "date", "event"]),
+            output_path=str(tmp_path / "r.html"),
+        )["what_to_do"],
+    ):
+        assert "audit_tracking" in guidance
+    server.audit_tracking(["page_view"])   # 안내받은 대로 부르면 열려야 한다

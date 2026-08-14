@@ -17,6 +17,11 @@ from datetime import date, datetime, timedelta, timezone
 # classify_users와 find_aha_moments가 반드시 같은 기준을 쓴다 (리포트 안에서 숫자가 어긋나지 않게).
 REGULAR_DAYS_IN_2W = 10
 
+# 유저를 판정하려면 그만큼 지켜본 뒤여야 한다. 이 두 숫자가 곧
+# "로깅을 심었으면 언제 다시 오면 되는가"의 답이기도 하다 (tracking_plan이 그대로 쓴다).
+CHURN_JUDGEMENT_DAYS = 7    # 이만큼 지나야 '한 번 쓰고 떠났다'고 말할 수 있다
+REGULAR_JUDGEMENT_DAYS = 14  # 이만큼 지나야 단골 판정과 1주차 리텐션이 나온다
+
 # 허영 지표 — 가치를 증명하지 않는 이벤트. value_event로 못 쓰게 막고,
 # 아하 후보에서도 뺀다. 이름만 다른 같은 개념들을 모아둔다.
 VANITY_EVENTS = {
@@ -292,11 +297,11 @@ def classify_users(users: dict[str, UserRow], today: date) -> dict[str, list[str
         active = sorted(u.value_days)
         tenure = (today - u.signup).days + 1
         recent2w = [d for d in active if (today - d).days < 14]
-        if len(active) <= 1 and tenure >= 7:
+        if len(active) <= 1 and tenure >= CHURN_JUDGEMENT_DAYS:
             buckets["churned"].append(u.user_id)
         elif active and all(d.weekday() >= 5 for d in active) and len(active) >= 2:
             buckets["weekend_only"].append(u.user_id)
-        elif tenure >= 14 and len(recent2w) >= REGULAR_DAYS_IN_2W:
+        elif tenure >= REGULAR_JUDGEMENT_DAYS and len(recent2w) >= REGULAR_DAYS_IN_2W:
             buckets["regular"].append(u.user_id)
         else:
             buckets["casual"].append(u.user_id)
@@ -391,18 +396,51 @@ def top_aha(results: list[dict]) -> dict | None:
     )
 
 
-def audit_tracking(code_events: list[str], data_events: set[str]) -> dict:
-    """코드에서 찾은 이벤트 목록과 실제 데이터에 찍힌 이벤트를 대조한다.
+def audit_tracking(code_events: list[str], data_events: set[str] | None = None) -> dict:
+    """코드에서 찾은 이벤트를 점검한다. 데이터가 있으면 대조까지 한다.
 
+    data_events가 없어도 답할 게 있다 — 오히려 이 경우가 이 툴이 제일 필요한
+    상황이다(추적을 안 해서 데이터가 없는 것). 코드만 봐도 "심어둔 게 전부
+    허영 지표라 '유저가 가치를 얻었나'에 영원히 답할 수 없다"는 진단이 나온다.
+
+    데이터가 있으면 추가로:
     - 코드에만 있음 → 심어놨는데 한 번도 안 찍힘 (고장이거나, 아무도 안 쓰는 기능)
     - 데이터에만 있음 → 코드에서 못 찾음 (죽은 코드거나, 스캔 누락)
-    - 양쪽 다 있음 → 정상 추적 중
     """
     code = set(code_events)
-    return {
+    usable = sorted(e for e in code if not is_vanity(e))
+    out = {
+        "in_code": sorted(code),
+        "usable_in_code": usable,
+        "vanity_in_code": sorted(e for e in code if is_vanity(e)),
+        "can_measure_value": bool(usable),
+    }
+    if data_events is None:
+        return out
+    return out | {
         "tracked_ok": sorted(code & data_events),
         "in_code_never_fired": sorted(code - data_events),
         "in_data_not_in_code": sorted(data_events - code),
+    }
+
+
+def tracking_plan(code_events: list[str]) -> dict:
+    """추적이 부족한 사람에게 줄 답: 지금 뭐가 부족하고, 언제 다시 오면 되는가.
+
+    '며칠 뒤'는 지어낸 숫자가 아니라 판정 기준에서 그대로 나온다 —
+    이탈은 CHURN_JUDGEMENT_DAYS, 단골과 1주차 리텐션은 REGULAR_JUDGEMENT_DAYS.
+    """
+    audit = audit_tracking(code_events)
+    return audit | {
+        "come_back_in_days": {
+            "first_signal": CHURN_JUDGEMENT_DAYS,
+            "full_picture": REGULAR_JUDGEMENT_DAYS,
+        },
+        "why_those_days": (
+            f"Calling a user churned needs {CHURN_JUDGEMENT_DAYS} days of watching them; "
+            f"calling one a regular, and week-1 retention, needs {REGULAR_JUDGEMENT_DAYS}. "
+            "Before that the code has nothing honest to say."
+        ),
     }
 
 

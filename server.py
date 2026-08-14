@@ -81,9 +81,12 @@ def analyze(
                 "SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders "
                 "UNION ALL SELECT user_id, added_at::date, 'add_to_wishlist' FROM wishlist_items",
                 "4. Call analyze again with the CSV it wrote.",
-                "If there is no database and nothing is tracked, say so plainly — this "
-                "tool cannot help yet. Offer to add event logging instead: find the "
-                "handlers for the product's core actions and use audit_tracking.",
+                "If there is no database and nothing is tracked, say so plainly — "
+                "this tool cannot report on a product that records nothing. Then do "
+                "the useful thing instead: read the code for the core actions and "
+                "call audit_tracking with them (no csv_path needed). It names the "
+                "holes and tells you how many days of data are needed before "
+                "analyze can say anything honest.",
             ],
         }
 
@@ -99,9 +102,10 @@ def analyze(
                 "what_to_do": (
                     "Nothing in this data looks like a value event: every action is "
                     "either a vanity metric, done by too few users, or never repeated. "
-                    "That is a tracking problem, not a product problem. Tell the user "
-                    "which core actions are not being recorded and offer to add logging "
-                    "(audit_tracking has the procedure)."
+                    "That is a tracking problem, not a product problem. Read the code "
+                    "for the product's core actions and call audit_tracking with what "
+                    "you find — it works without data and comes back with the holes, "
+                    "and with how long to wait once logging is added."
                 ),
             }
         value_event = best["event"]
@@ -239,11 +243,12 @@ def find_aha_moments(csv_path: str, value_event: str) -> dict:
 
 
 @mcp.tool()
-def audit_tracking(code_events: list[str], csv_path: str) -> dict:
-    """Compare the events logged in the code against the events in the data.
+def audit_tracking(code_events: list[str], csv_path: str | None = None) -> dict:
+    """Check what the code logs, and — if there is data — whether it arrives.
 
-    This is also the tool for a project that tracks nothing yet — there is no
-    data to analyse, but there is code to read.
+    Use this when analyze says there is nothing to work with. A project that
+    tracks nothing has no data to analyse, but it has code to read, so leave
+    csv_path out and this still answers.
 
     How to use it:
     1. Search the codebase for logging calls yourself. Common shapes:
@@ -260,10 +265,21 @@ def audit_tracking(code_events: list[str], csv_path: str) -> dict:
        that belongs in that file, in that function, matching the surrounding
        style, show it, and ask whether to add it. Follow the project's existing
        naming (follow_artist if it is snake_case, followArtist if camelCase).
+    6. Once logging is in, tell them when to come back. come_back_in_days is in
+       the result and is not a guess — it is how long the code must watch a user
+       before it can honestly call them churned or a regular. Saying "run this
+       again tomorrow" would produce a report with nothing in it.
     """
+    if csv_path is None:
+        return analysis.tracking_plan(code_events)
+
     events = analysis.load_events(csv_path)
     data_events = {e["event"] for e in events}
-    return analysis.audit_tracking(code_events, data_events)
+    result = analysis.audit_tracking(code_events, data_events)
+    if not result["usable_in_code"]:
+        # 데이터가 있어도 전부 허영 지표면 '가치를 얻었나'에 답할 수 없다
+        result |= analysis.tracking_plan(code_events)
+    return result
 
 
 @mcp.tool()
