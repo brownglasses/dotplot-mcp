@@ -191,24 +191,73 @@ def _read_rows(path: str) -> list[dict]:
     return list(csv.DictReader(io.StringIO(text), dialect=dialect))
 
 
+# 못 쓰는 행이 이 비율을 넘으면 '지저분한 데이터'가 아니라 '잘못된 컬럼'이다.
+MAX_BAD_ROW_RATE = 0.1
+
+# 이만큼 미래의 날짜는 데이터가 아니라 사고다 (테스트 계정, 잘못된 타임스탬프,
+# 시간대 오류). 한 줄만 섞여도 today가 그리로 끌려가 전원이 이탈로 보고된다.
+FUTURE_TOLERANCE_DAYS = 2
+
+
 def load_events(csv_path: str) -> list[dict]:
     """이벤트 파일을 읽는다 — 형식과 컬럼명은 알아서 맞춘다.
 
-    인자 이름이 csv_path인 건 역사적 이유다. CSV, TSV, JSON, JSONL 다 받는다.
+    인자 이름이 csv_path인 건 역사적 이유다. CSV, TSV, JSONL 다 받는다.
+
+    진짜 데이터는 지저분하다. 빈 칸 하나 때문에 5만 줄짜리 분석이 죽으면 안 되고,
+    그렇다고 조용히 버려도 안 된다 — 몇 줄을 왜 버렸는지 세어서 알린다.
     """
     rows = _read_rows(csv_path)
     if not rows:
         raise EventFileError(f"{csv_path} has no rows.")
     cols = _match_columns(list(rows[0].keys()))
-    out = []
+
+    horizon = date.today() + timedelta(days=FUTURE_TOLERANCE_DAYS)
+    out: list[dict] = []
+    skipped: dict[str, int] = defaultdict(int)
     for row in rows:
+        uid = str(row.get(cols["user_id"]) or "").strip()
+        ev = str(row.get(cols["event"]) or "").strip()
+        raw = row.get(cols["date"])
+        if not uid or not ev or raw in (None, ""):
+            skipped["blank"] += 1
+            continue
+        try:
+            day = parse_day(raw)
+        except EventFileError:
+            skipped["unreadable_date"] += 1
+            continue
+        if day > horizon:
+            # 미래 날짜를 남기면 '오늘'이 그리로 끌려가 모두가 오래 잠든 것처럼 보인다
+            skipped["future_date"] += 1
+            continue
         out.append({
-            "user_id": str(row[cols["user_id"]]),
-            "date": parse_day(row[cols["date"]]),
-            "event": str(row[cols["event"]]),
-            "platform": str(row[cols["platform"]]) if "platform" in cols else "unknown",
+            "user_id": uid,
+            "date": day,
+            "event": ev,
+            "platform": str(row.get(cols["platform"]) or "unknown") if "platform" in cols else "unknown",
         })
+
+    total_bad = sum(skipped.values())
+    if not out:
+        raise EventFileError(
+            f"Every row in {csv_path} was unusable ({dict(skipped)}). "
+            "Check that the columns hold what their names suggest."
+        )
+    if total_bad > len(rows) * MAX_BAD_ROW_RATE:
+        raise EventFileError(
+            f"{total_bad} of {len(rows)} rows are unusable ({dict(skipped)}) — too many "
+            "to be stray nulls. The columns are probably not the ones intended: "
+            f"reading {cols['user_id']!r}, {cols['date']!r}, {cols['event']!r}."
+        )
+    if total_bad:
+        out[0] = out[0] | {"_skipped": dict(skipped)}   # 리포트가 알릴 수 있게 남긴다
     return out
+
+
+def skipped_rows(events: list[dict]) -> dict:
+    """load_events가 버린 행 내역. 없으면 빈 dict."""
+    return events[0].get("_skipped", {}) if events else {}
 
 
 class ValueEventError(ValueError):

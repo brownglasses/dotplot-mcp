@@ -346,3 +346,53 @@ def test_analyze_sends_a_trackless_project_somewhere_reachable(tmp_path):
     ):
         assert "audit_tracking" in guidance
     server.audit_tracking(["page_view"])   # 안내받은 대로 부르면 열려야 한다
+
+
+# ── 진짜 데이터는 지저분하다 ─────────────────────────────────────────────
+
+def test_a_few_bad_rows_do_not_kill_the_analysis(tmp_path):
+    """빈 칸 하나 때문에 5만 줄짜리 분석이 죽으면 안 된다.
+    production 내보내기에 NULL은 늘 있다."""
+    rows = events_for(12, 20) + [["", "2026-07-05", "purchase"],
+                                 ["u001", "", "purchase"],
+                                 ["u002", "2026-07-05", ""]]
+    path = write_csv(tmp_path / "e.csv", rows, ["user_id", "date", "event"])
+    events = analysis.load_events(path)
+    assert len({e["user_id"] for e in events}) == 12
+    assert analysis.skipped_rows(events) == {"blank": 3}
+
+
+def test_a_future_dated_row_cannot_make_everyone_look_dormant(tmp_path):
+    """'오늘'은 데이터의 마지막 날이다. 테스트 계정 하나가 2099년으로 찍히면
+    모든 유저가 몇 십 년 잠든 것처럼 계산돼 단골이 전부 사라진다."""
+    clean = write_csv(tmp_path / "a.csv", events_for(12, 20), ["user_id", "date", "event"])
+    dirty = write_csv(tmp_path / "b.csv",
+                      events_for(12, 20) + [["u001", "2099-01-01", "purchase"]],
+                      ["user_id", "date", "event"])
+
+    def buckets(p):
+        ev = analysis.load_events(p)
+        u = analysis.build_users(ev, "purchase")
+        return {k: len(v) for k, v in analysis.classify_users(u, max(e["date"] for e in ev)).items()}
+
+    assert buckets(clean) == buckets(dirty)
+    assert analysis.skipped_rows(analysis.load_events(dirty)) == {"future_date": 1}
+
+
+def test_mostly_broken_data_is_refused_not_silently_trimmed(tmp_path):
+    """빈 칸 몇 개는 지저분한 데이터지만, 절반이 비어 있으면 컬럼을 잘못 잡은 것이다.
+    그건 조용히 버리면 안 되고 멈춰야 한다."""
+    rows = events_for(3, 5) + [["", "", ""] for _ in range(30)]
+    path = write_csv(tmp_path / "e.csv", rows, ["user_id", "date", "event"])
+    with pytest.raises(analysis.EventFileError) as e:
+        analysis.load_events(path)
+    assert "too many" in str(e.value)
+
+
+def test_analyze_reports_what_it_dropped(tmp_path):
+    """버린 행을 조용히 숨기면 그것도 거짓말이다."""
+    import server
+    rows = events_for(12, 20) + [["u001", "2099-01-01", "purchase"]]
+    path = write_csv(tmp_path / "e.csv", rows, ["user_id", "date", "event"])
+    r = server.analyze(path, output_path=str(tmp_path / "r.html"))
+    assert r["skipped_rows"] == {"future_date": 1}

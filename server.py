@@ -176,9 +176,16 @@ def analyze(
     ]
     top = analysis.top_aha(aha)
 
+    skipped = analysis.skipped_rows(events)
     return {
         "status": "ok",
         "report": output_path,
+        **({"skipped_rows": skipped,
+            "skipped_note": "Rows dropped as unusable — blank fields, unreadable "
+                            "dates, or dates in the future (one future-dated test "
+                            "row would otherwise make every user look dormant). "
+                            "Mention this to the user if the count is meaningful."}
+           if skipped else {}),
         "value_event": {
             "chosen": value_event,
             "why": chosen_because,
