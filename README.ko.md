@@ -20,6 +20,19 @@ claude mcp add --scope user dotplot -- uvx dotplot-mcp
 
 위 리포트가 나옵니다. 그게 전부예요.
 
+슬래시 명령어로 쓰고 싶으면 (선택):
+
+```bash
+git clone --depth 1 https://github.com/brownglasses/dotplot-mcp /tmp/dp \
+  && cp -r /tmp/dp/skills/dotplot-* ~/.claude/skills/ && rm -rf /tmp/dp
+```
+
+```
+/dotplot-analyze-product    전체 분석 + 리포트
+/dotplot-add-tracking       빠진 로깅 찾아서 심어주기
+/dotplot-whats-changed      지난번 리포트 대비 변화
+```
+
 Claude가 알아서 데이터를 찾고, "이 행동을 했으면 가치를 얻은 것"에 해당하는
 이벤트를 고르고, 리포트를 만듭니다. **events 테이블 없어도 됩니다** —
 `orders` 테이블이 이미 이벤트 로그거든요:

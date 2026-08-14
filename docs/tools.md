@@ -24,13 +24,23 @@ retention").
 
 ## Slash commands
 
-Type `/` in Claude Code:
+Install the skills and type `/` in Claude Code:
+
+```bash
+git clone --depth 1 https://github.com/brownglasses/dotplot-mcp /tmp/dp \
+  && cp -r /tmp/dp/skills/dotplot-* ~/.claude/skills/ && rm -rf /tmp/dp
+```
 
 | | |
 |---|---|
-| `/mcp__dotplot__analyze_product` | Full analysis and report |
-| `/mcp__dotplot__add_tracking` | Find and write the logging you're missing |
-| `/mcp__dotplot__whats_changed` | Compare with the previous report |
+| `/dotplot-analyze-product` | Full analysis and report |
+| `/dotplot-add-tracking` | Find and write the logging you're missing |
+| `/dotplot-whats-changed` | Compare with the previous report |
+
+The MCP server also exposes the same three as prompts, which appear as
+`/mcp__dotplot__…` without installing anything. The skills are worth installing
+anyway: they carry the judgement — which value event to pick, when a number is
+too thin to report, how to name an event — that a one-line prompt can't.
 
 ## Input
 

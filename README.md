@@ -20,6 +20,19 @@ Say this in any project:
 
 You get the report above. That's it.
 
+Or install the slash commands (optional):
+
+```bash
+git clone --depth 1 https://github.com/brownglasses/dotplot-mcp /tmp/dp \
+  && cp -r /tmp/dp/skills/dotplot-* ~/.claude/skills/ && rm -rf /tmp/dp
+```
+
+```
+/dotplot-analyze-product    full analysis and report
+/dotplot-add-tracking       find and write the logging you're missing
+/dotplot-whats-changed      compare with the previous report
+```
+
 Claude finds your data, picks the action that means "this user got value", and
 writes the report. No events table needed — your `orders` table already is one:
 
