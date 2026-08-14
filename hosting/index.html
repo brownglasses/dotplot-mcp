@@ -122,32 +122,6 @@ h1{font-size:46px;margin:0 0 4px}
 <p><span class="bubble">"Analyze my product"</span><br>Claude finds your data, runs the analysis, and hands you the report.</p></div>
 </div>
 
-
-<div class="demo">
-<h2 id="t-demoh">Don't trust it? Run it here first.</h2>
-<p class="lead" id="t-lead">Paste your own event log — 3 columns: <code>user_id, date, event</code><br>
-<span style="font-size:15px">From a CSV export, or straight out of your database (query below).</span></p>
-<textarea id="ta" spellcheck="false" placeholder="user_id,date,event
-u01,2026-07-01,play_song
-u01,2026-07-02,play_song
-u01,2026-07-05,create_playlist
-u02,2026-07-01,purchase
-..."></textarea>
-<div class="demorow">
-<button class="btn primary small" id="run">Find my aha moment</button>
-<button class="btn small" id="load">Load sample data</button>
-</div>
-<p class="privacy" id="t-priv">Runs entirely in this tab — <b>nothing is uploaded.</b> Open DevTools → Network and watch: zero requests.</p>
-<details class="sqlhint"><summary id="t-sqlsum">Data lives in Postgres / Supabase? Get 3 columns out of it</summary>
-<div class="body">
-<p id="t-sqlp">Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:</p>
-<div class="sqlbar"><div class="scroll"><code id="sql">SELECT user_id, created_at::date AS date, 'purchase' AS event FROM orders ORDER BY 2 DESC LIMIT 2000;</code></div>
-<button class="copy" data-copy="sql">copy</button></div>
-<p style="margin:8px 0 0" id="t-sqlnote">Once installed, you skip this step — Dotplot reads your database directly, on your machine.</p>
-</div></details>
-<div class="out" id="out"></div>
-<div id="err" class="err"></div>
-</div>
 <p style="font-size:18px;color:#8a877e;margin:0 0 10px" id="t-getsh">What you get in ~3 minutes:</p>
 <div class="gets" id="t-gets">
 <span class="get">💡 your aha moment</span>
@@ -163,478 +137,9 @@ u02,2026-07-01,purchase
 </div>
 
 <script>
-const SAMPLE = `user_id,date,event
-u03,2026-07-01,play_song
-u03,2026-07-01,search
-u05,2026-07-01,play_song
-u05,2026-07-01,search
-u09,2026-07-01,play_song
-u09,2026-07-01,search
-u13,2026-07-01,play_song
-u01,2026-07-02,play_song
-u04,2026-07-02,play_song
-u06,2026-07-02,play_song
-u06,2026-07-02,search
-u10,2026-07-02,play_song
-u10,2026-07-02,search
-u14,2026-07-02,play_song
-u01,2026-07-03,play_song
-u02,2026-07-03,play_song
-u03,2026-07-03,play_song
-u04,2026-07-03,play_song
-u07,2026-07-03,play_song
-u11,2026-07-03,play_song
-u15,2026-07-03,play_song
-u15,2026-07-03,search
-u01,2026-07-04,play_song
-u02,2026-07-04,play_song
-u03,2026-07-04,play_song
-u04,2026-07-04,play_song
-u07,2026-07-04,play_song
-u08,2026-07-04,play_song
-u12,2026-07-04,play_song
-u12,2026-07-04,search
-u16,2026-07-04,play_song
-u16,2026-07-04,search
-u19,2026-07-04,play_song
-u20,2026-07-04,play_song
-u20,2026-07-04,search
-u21,2026-07-04,play_song
-u22,2026-07-04,play_song
-u22,2026-07-04,search
-u01,2026-07-05,play_song
-u02,2026-07-05,play_song
-u03,2026-07-05,play_song
-u04,2026-07-05,play_song
-u06,2026-07-05,play_song
-u08,2026-07-05,play_song
-u10,2026-07-05,play_song
-u11,2026-07-05,play_song
-u17,2026-07-05,play_song
-u19,2026-07-05,play_song
-u20,2026-07-05,play_song
-u20,2026-07-05,search
-u21,2026-07-05,play_song
-u22,2026-07-05,play_song
-u02,2026-07-06,play_song
-u03,2026-07-06,play_song
-u03,2026-07-06,search
-u04,2026-07-06,play_song
-u09,2026-07-06,play_song
-u09,2026-07-06,search
-u18,2026-07-06,play_song
-u01,2026-07-07,play_song
-u02,2026-07-07,play_song
-u04,2026-07-07,play_song
-u05,2026-07-07,play_song
-u05,2026-07-07,search
-u05,2026-07-07,create_playlist
-u10,2026-07-07,play_song
-u10,2026-07-07,search
-u01,2026-07-08,play_song
-u02,2026-07-08,play_song
-u03,2026-07-08,play_song
-u04,2026-07-08,play_song
-u05,2026-07-08,play_song
-u05,2026-07-08,search
-u10,2026-07-08,play_song
-u10,2026-07-08,search
-u10,2026-07-08,create_playlist
-u01,2026-07-09,play_song
-u02,2026-07-09,play_song
-u02,2026-07-09,search
-u03,2026-07-09,play_song
-u03,2026-07-09,search
-u04,2026-07-09,play_song
-u05,2026-07-09,play_song
-u05,2026-07-09,search
-u10,2026-07-09,play_song
-u01,2026-07-10,play_song
-u01,2026-07-10,search
-u02,2026-07-10,play_song
-u03,2026-07-10,play_song
-u04,2026-07-10,play_song
-u05,2026-07-10,play_song
-u05,2026-07-10,search
-u07,2026-07-10,play_song
-u07,2026-07-10,search
-u09,2026-07-10,play_song
-u09,2026-07-10,create_playlist
-u10,2026-07-10,play_song
-u11,2026-07-10,play_song
-u11,2026-07-10,search
-u11,2026-07-10,create_playlist
-u01,2026-07-11,play_song
-u01,2026-07-11,search
-u02,2026-07-11,play_song
-u02,2026-07-11,search
-u03,2026-07-11,play_song
-u04,2026-07-11,play_song
-u05,2026-07-11,play_song
-u09,2026-07-11,play_song
-u10,2026-07-11,play_song
-u11,2026-07-11,play_song
-u12,2026-07-11,play_song
-u12,2026-07-11,create_playlist
-u20,2026-07-11,play_song
-u21,2026-07-11,play_song
-u22,2026-07-11,play_song
-u22,2026-07-11,search
-u02,2026-07-12,play_song
-u02,2026-07-12,search
-u03,2026-07-12,play_song
-u04,2026-07-12,play_song
-u05,2026-07-12,play_song
-u09,2026-07-12,play_song
-u09,2026-07-12,search
-u10,2026-07-12,play_song
-u10,2026-07-12,search
-u11,2026-07-12,play_song
-u11,2026-07-12,search
-u12,2026-07-12,play_song
-u12,2026-07-12,search
-u19,2026-07-12,play_song
-u20,2026-07-12,play_song
-u20,2026-07-12,search
-u21,2026-07-12,play_song
-u22,2026-07-12,play_song
-u01,2026-07-13,play_song
-u01,2026-07-13,search
-u03,2026-07-13,play_song
-u04,2026-07-13,play_song
-u05,2026-07-13,play_song
-u09,2026-07-13,play_song
-u09,2026-07-13,search
-u11,2026-07-13,play_song
-u11,2026-07-13,search
-u12,2026-07-13,play_song
-u01,2026-07-14,play_song
-u01,2026-07-14,search
-u02,2026-07-14,play_song
-u03,2026-07-14,play_song
-u04,2026-07-14,play_song
-u05,2026-07-14,play_song
-u09,2026-07-14,play_song
-u10,2026-07-14,play_song
-u10,2026-07-14,search
-u11,2026-07-14,play_song
-u11,2026-07-14,search
-u12,2026-07-14,play_song
-u01,2026-07-15,play_song
-u01,2026-07-15,search
-u04,2026-07-15,play_song
-u05,2026-07-15,play_song
-u09,2026-07-15,play_song
-u09,2026-07-15,search
-u10,2026-07-15,play_song
-u11,2026-07-15,play_song
-u12,2026-07-15,play_song
-u12,2026-07-15,search
-u01,2026-07-16,play_song
-u05,2026-07-16,play_song
-u07,2026-07-16,play_song
-u09,2026-07-16,play_song
-u10,2026-07-16,play_song
-u11,2026-07-16,play_song
-u12,2026-07-16,play_song
-u01,2026-07-17,play_song
-u01,2026-07-17,search
-u02,2026-07-17,play_song
-u04,2026-07-17,play_song
-u05,2026-07-17,play_song
-u05,2026-07-17,search
-u09,2026-07-17,play_song
-u09,2026-07-17,search
-u10,2026-07-17,play_song
-u11,2026-07-17,play_song
-u02,2026-07-18,play_song
-u03,2026-07-18,play_song
-u05,2026-07-18,play_song
-u05,2026-07-18,search
-u08,2026-07-18,play_song
-u09,2026-07-18,play_song
-u10,2026-07-18,play_song
-u10,2026-07-18,search
-u11,2026-07-18,play_song
-u12,2026-07-18,play_song
-u12,2026-07-18,search
-u19,2026-07-18,play_song
-u19,2026-07-18,search
-u20,2026-07-18,play_song
-u20,2026-07-18,search
-u21,2026-07-18,play_song
-u22,2026-07-18,play_song
-u22,2026-07-18,search
-u02,2026-07-19,play_song
-u03,2026-07-19,play_song
-u04,2026-07-19,play_song
-u05,2026-07-19,play_song
-u09,2026-07-19,play_song
-u10,2026-07-19,play_song
-u11,2026-07-19,play_song
-u12,2026-07-19,play_song
-u19,2026-07-19,play_song
-u20,2026-07-19,play_song
-u20,2026-07-19,search
-u21,2026-07-19,play_song
-u22,2026-07-19,play_song
-u01,2026-07-20,play_song
-u02,2026-07-20,play_song
-u03,2026-07-20,play_song
-u04,2026-07-20,play_song
-u05,2026-07-20,play_song
-u10,2026-07-20,play_song
-u11,2026-07-20,play_song
-u12,2026-07-20,play_song
-u12,2026-07-20,search
-u01,2026-07-21,play_song
-u02,2026-07-21,play_song
-u03,2026-07-21,play_song
-u05,2026-07-21,play_song
-u09,2026-07-21,play_song
-u09,2026-07-21,search
-u10,2026-07-21,play_song
-u11,2026-07-21,play_song
-u12,2026-07-21,play_song
-u01,2026-07-22,play_song
-u02,2026-07-22,play_song
-u04,2026-07-22,play_song
-u05,2026-07-22,play_song
-u09,2026-07-22,play_song
-u09,2026-07-22,search
-u10,2026-07-22,play_song
-u11,2026-07-22,play_song
-u11,2026-07-22,search
-u12,2026-07-22,play_song
-u12,2026-07-22,search
-u01,2026-07-23,play_song
-u02,2026-07-23,play_song
-u04,2026-07-23,play_song
-u05,2026-07-23,play_song
-u05,2026-07-23,search
-u08,2026-07-23,play_song
-u08,2026-07-23,create_playlist
-u09,2026-07-23,play_song
-u10,2026-07-23,play_song
-u11,2026-07-23,play_song
-u11,2026-07-23,search
-u02,2026-07-24,play_song
-u03,2026-07-24,play_song
-u04,2026-07-24,play_song
-u05,2026-07-24,play_song
-u08,2026-07-24,play_song
-u10,2026-07-24,play_song
-u11,2026-07-24,play_song
-u11,2026-07-24,search
-u12,2026-07-24,play_song
-u01,2026-07-25,play_song
-u02,2026-07-25,play_song
-u03,2026-07-25,play_song
-u03,2026-07-25,search
-u04,2026-07-25,play_song
-u06,2026-07-25,play_song
-u07,2026-07-25,play_song
-u07,2026-07-25,search
-u08,2026-07-25,play_song
-u09,2026-07-25,play_song
-u10,2026-07-25,play_song
-u11,2026-07-25,play_song
-u12,2026-07-25,play_song
-u19,2026-07-25,play_song
-u20,2026-07-25,play_song
-u20,2026-07-25,search
-u21,2026-07-25,play_song
-u22,2026-07-25,play_song
-u01,2026-07-26,play_song
-u01,2026-07-26,search
-u02,2026-07-26,play_song
-u02,2026-07-26,search
-u03,2026-07-26,play_song
-u04,2026-07-26,play_song
-u08,2026-07-26,play_song
-u08,2026-07-26,search
-u09,2026-07-26,play_song
-u10,2026-07-26,play_song
-u10,2026-07-26,search
-u11,2026-07-26,play_song
-u12,2026-07-26,play_song
-u19,2026-07-26,play_song
-u20,2026-07-26,play_song
-u21,2026-07-26,play_song
-u21,2026-07-26,search
-u22,2026-07-26,play_song
-u22,2026-07-26,search
-u01,2026-07-27,play_song
-u02,2026-07-27,play_song
-u02,2026-07-27,search
-u04,2026-07-27,play_song
-u05,2026-07-27,play_song
-u08,2026-07-27,play_song
-u09,2026-07-27,play_song
-u10,2026-07-27,play_song
-u10,2026-07-27,search
-u11,2026-07-27,play_song
-u11,2026-07-27,search
-u12,2026-07-27,play_song
-u01,2026-07-28,play_song
-u01,2026-07-28,search
-u02,2026-07-28,play_song
-u03,2026-07-28,play_song
-u04,2026-07-28,play_song
-u04,2026-07-28,search
-u05,2026-07-28,play_song
-u05,2026-07-28,search
-u08,2026-07-28,play_song
-u09,2026-07-28,play_song
-u09,2026-07-28,search
-u10,2026-07-28,play_song
-u11,2026-07-28,play_song`;
-const VANITY = ['open_app','app_open','session_start','page_view','pageview','view_home','scroll_feed','app_launch'];
-const DAY = 86400000;
 const d2n = s => { const p = s.trim().slice(0,10).split('-').map(Number); return Date.UTC(p[0], p[1]-1, p[2]); };
 const isWeekend = n => { const w = new Date(n).getUTCDay(); return w === 0 || w === 6; };
 const esc = s => String(s).replace(/[<>&]/g, '');
-
-function parseRows(text){
-  const out = [];
-  for (const raw of text.split(/\r?\n/)){
-    const line = raw.trim();
-    if (!line) continue;
-    const f = line.split(',').map(s => s.trim());
-    if (f.length < 3) continue;
-    let uid, date, ev;
-    if (f.length >= 4 && /^\d{4}-\d{2}-\d{2}/.test(f[2])) { uid = f[0]; date = f[2]; ev = f[3]; }
-    else { uid = f[0]; date = f[1]; ev = f[2]; }
-    if (!/^\d{4}-\d{2}-\d{2}/.test(date)) continue;
-    if (!uid || !ev) continue;
-    out.push({ uid, n: d2n(date), ev });
-  }
-  return out;
-}
-
-function buildUsers(rows, valueEvent){
-  const users = new Map();
-  for (const r of rows){
-    let u = users.get(r.uid);
-    if (!u) { u = { id: r.uid, signup: r.n, value: new Set(), special: new Map() }; users.set(r.uid, u); }
-    if (r.n < u.signup) u.signup = r.n;
-    if (r.ev === valueEvent) u.value.add(r.n);
-    else if (!VANITY.includes(r.ev)) {
-      if (!u.special.has(r.n)) u.special.set(r.n, new Set());
-      u.special.get(r.n).add(r.ev);
-    }
-  }
-  return [...users.values()];
-}
-
-function classify(users, today){
-  const b = { churned: [], weekend_only: [], regular: [], casual: [] };
-  for (const u of users){
-    const active = [...u.value].sort((a,c) => a-c);
-    const tenure = (today - u.signup)/DAY + 1;
-    const recent = active.filter(d => (today-d)/DAY < 14);
-    if (active.length <= 1 && tenure >= 7) b.churned.push(u);
-    else if (active.length >= 2 && active.every(isWeekend)) b.weekend_only.push(u);
-    else if (tenure >= 14 && recent.length >= 10) b.regular.push(u);
-    else b.casual.push(u);
-  }
-  return b;
-}
-
-function findAha(rows, users, valueEvent, today){
-  const MIN = 5;
-  const isRegular = u => [...u.value].filter(d => (today-d)/DAY < 14).length >= 8;
-  const first = new Map();
-  for (const r of rows){
-    if (r.ev === valueEvent || VANITY.includes(r.ev)) continue;
-    if (!first.has(r.ev)) first.set(r.ev, new Map());
-    const m = first.get(r.ev);
-    if (!m.has(r.uid) || r.n < m.get(r.uid)) m.set(r.uid, r.n);
-  }
-  const results = [];
-  for (const entry of first){
-    const ev = entry[0], m = entry[1];
-    const a = users.filter(u => m.has(u.id));
-    const bg = users.filter(u => !m.has(u.id));
-    if (a.length < MIN || bg.length < MIN) continue;
-    const rateA = a.filter(isRegular).length / a.length;
-    const rateB = bg.filter(isRegular).length / bg.length;
-    const changes = [];
-    for (const u of a){
-      const f = m.get(u.id);
-      const pre = (f - u.signup)/DAY, post = (today - f)/DAY;
-      if (pre < 3 || post < 3) continue;
-      const preRate = [...u.value].filter(d => d >= u.signup && d < f).length / pre;
-      const postRate = [...u.value].filter(d => d >= f).length / (post + 1);
-      changes.push(postRate - preRate);
-    }
-    const change = changes.length >= MIN ? changes.reduce((x,y) => x+y, 0)/changes.length : null;
-    results.push({ ev, didCount: a.length, notCount: bg.length, rateA, rateB, change });
-  }
-  results.sort((x,y) => (x.change === null) - (y.change === null)
-    || (y.change === null ? -1 : y.change) - (x.change === null ? -1 : x.change)
-    || (y.rateA - y.rateB) - (x.rateA - x.rateB));
-  return results;
-}
-
-function pickValueEvent(rows){
-  const c = {};
-  for (const r of rows) c[r.ev] = (c[r.ev] || 0) + 1;
-  const ranked = Object.keys(c).sort((a,b) => c[b]-c[a]);
-  const real = ranked.filter(e => !VANITY.includes(e));
-  return real.length ? real[0] : ranked[0];
-}
-
-function renderGrid(users, today, markEv){
-  const sorted = [...users].sort((a,b) => a.signup - b.signup).slice(0, 12);
-  const start = Math.min.apply(null, users.map(u => u.signup));
-  const days = Math.min(Math.round((today - start)/DAY) + 1, 35);
-  let h = '<div class="grid"><table>';
-  for (const u of sorted){
-    h += '<tr><td class="nm">' + esc(u.id) + '</td>';
-    for (let i = 0; i < days; i++){
-      const n = start + i*DAY;
-      const we = isWeekend(n) ? ' class="we"' : '';
-      const sp = u.special.get(n);
-      let cell = '';
-      if (markEv && sp && sp.has(markEv)) cell = '<span class="mk">' + esc(markEv[0].toUpperCase()) + '</span>';
-      else if (u.value.has(n)) cell = n === u.signup ? '<span class="ring"></span>' : '<span class="dot"></span>';
-      h += '<td' + we + '>' + cell + '</td>';
-    }
-    h += '</tr>';
-  }
-  return h + '</table></div>';
-}
-
-const pct = x => Math.round(x*100) + '%';
-
-function run(){
-  const err = document.getElementById('err'), out = document.getElementById('out');
-  err.textContent = ''; out.classList.remove('on');
-  const rows = parseRows(document.getElementById('ta').value);
-  if (rows.length < 10){ err.textContent = T().err; return; }
-  const valueEvent = pickValueEvent(rows);
-  const users = buildUsers(rows, valueEvent);
-  const today = Math.max.apply(null, rows.map(r => r.n));
-  const b = classify(users, today);
-  const aha = findAha(rows, users, valueEvent, today);
-  let top = null;
-  for (const a of aha){ if (a.change !== null && a.change >= 0.3) { top = a; break; } }
-
-  let h = renderGrid(users, today, top ? top.ev : null);
-  if (top){
-    h += '<div class="ahabox"><h3>' + T().ahah(esc(top.ev)) + '</h3><p>' +
-      T().ahap(top.didCount, pct(top.rateA), top.notCount, pct(top.rateB), pct(top.change)) + '</p></div>';
-  } else {
-    h += '<div class="ahabox" style="border-color:#c9c6bc;background:#faf9f6"><h3>' + T().noneh + '</h3><p>' + T().nonep + '</p></div>';
-  }
-  h += '<p class="glance">' + T().glance(b.churned.length, b.regular.length, b.weekend_only.length, b.casual.length) + '</p>';
-  h += '<p class="note">' + T().note(esc(valueEvent), users.length, rows.length) + '</p>';
-  h += '<div class="nextcta">' + T().cta + '<br><br>' +
-       '<button class="btn primary small" data-copy="cmd">' + T().ctab + '</button></div>';
-  out.innerHTML = h; out.classList.add('on');
-}
-
 
 /* ---- copy with fallback + always visible feedback ---- */
 function legacyCopy(text){
@@ -686,31 +191,18 @@ document.addEventListener('click', function(e){
   if (btn) copyFrom(btn);
 });
 
-document.getElementById('run').addEventListener('click', run);
-document.getElementById('load').addEventListener('click', function(){
-  document.getElementById('ta').value = SAMPLE; run();
-});
-
 /* ---------------- i18n ---------------- */
 const I18N = {
  en: {
   sub: 'One row per user, one dot per active day — ask Claude, get your aha moment.',
   trust: ['for Claude Code &amp; Cursor','open source (MIT)','no signup, no SDK','your data never leaves your machine','stats computed by Python, not the LLM'],
-  demoh: "Don't trust it? Run it here first.",
-  lead: 'Paste your own event log — 3 columns: <code>user_id, date, event</code><br><span style="font-size:15px">From a CSV export, or straight out of your database (query below).</span>',
-  run: 'Find my aha moment', load: 'Load sample data',
-  priv: 'Runs entirely in this tab — <b>nothing is uploaded.</b> Open DevTools → Network and watch: zero requests.',
-  sqlsum: 'Data lives in Postgres / Supabase? Get 3 columns out of it',
-  sqlp: 'Run this, paste the result above. Swap <code>orders</code> / <code>created_at</code> for your own table:',
-  sqlnote: 'Once installed, you skip this step — Dotplot reads your database directly, on your machine.',
+
   steps: [['Install','Paste the one line above into your terminal. No signup, no SDK.'],
           ['Say this','<span class="bubble">"Analyze my product"</span><br>Claude finds your data, runs the analysis, and hands you the report. No events table needed — your <code>orders</code> table already is one.']],
   getsh: 'What you get in ~3 minutes:',
   gets: ['💡 your aha moment','📉 where new users drop off','📈 weekly retention','🕐 change since last report','🌍 any language'],
   sample: 'Sample report',
-  err: 'Need at least ~10 rows of user_id,date,event — or load the sample.',
-  ahah: t => '💡 Your aha moment: ' + t,
-  ahap: (d,ra,n,rb,c) => d + " users did it — <b>" + ra + "</b> became regulars. Of the " + n + " who didn't, only " + rb + " did. Their own activity rose <b>" + c + "</b> after doing it.",
+
   noneh: 'No confident aha moment yet',
   nonep: 'Nothing cleared the bar — it needs 5+ users on each side and a clear before/after change. That is the honest answer; the real tool uses the same guard so it never invents a signal.',
   glance: (a,b,c,d) => '<span>⭕ '+a+' used once, never returned</span><span>🔵 '+b+' almost daily</span><span>📅 '+c+' weekend-only</span><span>· '+d+' occasional</span>',
@@ -721,21 +213,13 @@ const I18N = {
  ko: {
   sub: '유저 한 명이 한 줄, 활동한 날이 점 하나 — Claude에게 물으면 아하 모먼트를 찾아줍니다.',
   trust: ['Claude Code · Cursor 용','오픈소스 (MIT)','가입도 SDK도 없음','데이터는 내 컴퓨터를 벗어나지 않음','통계는 파이썬이 계산, LLM 아님'],
-  demoh: '못 믿겠다면, 여기서 먼저 돌려보세요.',
-  lead: '이벤트 로그를 붙여넣으세요 — 3칸: <code>user_id, date, event</code><br><span style="font-size:15px">CSV로 내보낸 것도, DB에서 바로 뽑은 것도 됩니다 (아래 쿼리).</span>',
-  run: '아하 모먼트 찾기', load: '샘플 데이터 넣기',
-  priv: '이 탭 안에서만 돌아갑니다 — <b>아무것도 업로드되지 않아요.</b> 개발자도구 → Network 열고 보세요: 요청 0건.',
-  sqlsum: '데이터가 Postgres / Supabase에 있나요? 3칸만 뽑는 법',
-  sqlp: '이걸 실행하고 결과를 위에 붙여넣으세요. <code>orders</code> / <code>created_at</code>은 본인 테이블로 바꾸면 됩니다:',
-  sqlnote: '설치하고 나면 이 단계는 사라집니다 — Dotplot이 내 컴퓨터에서 DB를 직접 읽으니까요.',
+
   steps: [['설치','위 한 줄을 터미널에 붙여넣기. 가입도 SDK도 필요 없음.'],
           ['이렇게 말하기','<span class="bubble">"우리 서비스 분석해줘"</span><br>Claude가 데이터를 찾고, 분석하고, 리포트를 줍니다. events 테이블 없어도 돼요 — <code>orders</code> 테이블이 이미 이벤트 로그거든요.']],
   getsh: '3분이면 받는 것:',
   gets: ['💡 우리 아하 모먼트','📉 새 유저가 새는 지점','📈 주차별 리텐션','🕐 지난번 대비 변화','🌍 모든 언어'],
   sample: '샘플 리포트',
-  err: 'user_id,date,event 형식으로 10줄 이상 필요해요 — 아니면 샘플을 넣어보세요.',
-  ahah: t => '💡 당신의 아하 모먼트: ' + t,
-  ahap: (d,ra,n,rb,c) => d + '명이 이걸 했고 그중 <b>' + ra + '</b>가 단골이 됐어요. 안 한 ' + n + '명 중에는 ' + rb + '뿐이고요. 이걸 한 뒤 본인 활동량이 <b>' + c + '</b> 늘었어요.',
+
   noneh: '아직 확신할 만한 아하 모먼트가 없어요',
   nonep: '기준을 넘은 행동이 없습니다 — 양쪽 각각 5명 이상과 뚜렷한 전/후 변화가 필요해요. 이게 정직한 답이고, 실제 도구도 같은 가드를 써서 없는 신호를 지어내지 않습니다.',
   glance: (a,b,c,d) => '<span>⭕ 한 번 쓰고 안 옴 '+a+'명</span><span>🔵 거의 매일 '+b+'명</span><span>📅 주말에만 '+c+'명</span><span>· 가끔 '+d+'명</span>',
@@ -746,21 +230,13 @@ const I18N = {
  ja: {
   sub: '1行が1ユーザー、1つの点が利用した1日 — Claudeに聞けばアハ・モーメントが見つかります。',
   trust: ['Claude Code・Cursor 用','オープンソース (MIT)','登録もSDKも不要','データは自分のPCから出ません','統計はPythonが計算、LLMではない'],
-  demoh: '信じられない？ まずここで動かしてみてください。',
-  lead: 'イベントログを貼り付け — 3列: <code>user_id, date, event</code><br><span style="font-size:15px">CSVでも、データベースから直接でも（下のクエリ）。</span>',
-  run: 'アハ・モーメントを探す', load: 'サンプルデータを入れる',
-  priv: 'このタブ内だけで動きます — <b>何もアップロードされません。</b> DevTools → Network を開いて確認を: リクエスト0件。',
-  sqlsum: 'データが Postgres / Supabase にある場合、3列を取り出す方法',
-  sqlp: 'これを実行して結果を上に貼り付けてください。<code>orders</code> / <code>created_at</code> はご自分のテーブルに:',
-  sqlnote: 'インストール後はこの手順は不要 — Dotplotが自分のPC上でDBを直接読みます。',
+
   steps: [['インストール','上の1行をターミナルに貼り付けるだけ。登録もSDKも不要。'],
           ['こう言うだけ','<span class="bubble">「うちのプロダクトを分析して」</span><br>Claudeがデータを見つけ、分析し、レポートを返します。eventsテーブルは不要 — <code>orders</code>テーブルがすでにイベントログです。']],
   getsh: '約3分で分かること:',
   gets: ['💡 アハ・モーメント','📉 新規ユーザーの離脱地点','📈 週次リテンション','🕐 前回からの変化','🌍 どの言語でも'],
   sample: 'サンプルレポート',
-  err: 'user_id,date,event の形式で10行以上必要です — またはサンプルをお試しください。',
-  ahah: t => '💡 あなたのアハ・モーメント: ' + t,
-  ahap: (d,ra,n,rb,c) => d + '人が実行し、そのうち<b>' + ra + '</b>が常連になりました。していない' + n + '人では' + rb + 'のみ。実行後、本人の利用量が<b>' + c + '</b>増えました。',
+
   noneh: 'まだ確信できるアハ・モーメントはありません',
   nonep: '基準を超えた行動はありません — 各グループ5人以上と明確な前後変化が必要です。これが正直な答えで、実際のツールも同じガードを使い、無い信号を作り出しません。',
   glance: (a,b,c,d) => '<span>⭕ 一度きり '+a+'人</span><span>🔵 ほぼ毎日 '+b+'人</span><span>📅 週末のみ '+c+'人</span><span>· たまに '+d+'人</span>',
@@ -779,14 +255,6 @@ function applyLang(l){
   document.getElementById('t-sub').textContent = d.sub;
   document.getElementById('hero').src = '/dotplot-' + LANG + '.png';
   document.getElementById('t-trust').innerHTML = d.trust.map(s => '<span>'+s+'</span>').join('');
-  document.getElementById('t-demoh').textContent = d.demoh;
-  document.getElementById('t-lead').innerHTML = d.lead;
-  document.getElementById('run').textContent = d.run;
-  document.getElementById('load').textContent = d.load;
-  document.getElementById('t-priv').innerHTML = d.priv;
-  document.getElementById('t-sqlsum').textContent = d.sqlsum;
-  document.getElementById('t-sqlp').innerHTML = d.sqlp;
-  document.getElementById('t-sqlnote').textContent = d.sqlnote;
   const steps = document.querySelectorAll('#t-how .step');
   for (let i = 0; i < steps.length; i++){
     steps[i].querySelector('h3').textContent = d.steps[i][0];
@@ -798,7 +266,6 @@ function applyLang(l){
   const bs = document.querySelectorAll('#langbar button');
   for (const b of bs) b.setAttribute('aria-current', String(b.dataset.lang === LANG));
   try { localStorage.setItem('dotplot_lang', LANG); } catch(e){}
-  if (document.getElementById('out').classList.contains('on')) run();
 }
 document.querySelectorAll('#langbar button').forEach(b =>
   b.addEventListener('click', () => applyLang(b.dataset.lang)));
